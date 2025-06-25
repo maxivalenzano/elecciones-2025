@@ -124,9 +124,6 @@ export default function BuscarPage() {
 
         {result && (
           <Card className="mt-6 border-green-200 bg-green-50">
-            <CardHeader>
-              <CardTitle className="text-green-800">¡Encontrado!</CardTitle>
-            </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <h3 className="font-semibold text-lg">{result.apellido_nombre}</h3>
@@ -151,14 +148,6 @@ export default function BuscarPage() {
                   <p className="text-2xl font-bold text-green-600">{result.orden}</p>
                 </div>
               </div>
-
-              {result.voto_timestamp && (
-                <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
-                  <p className="text-yellow-800 font-semibold">
-                    ✓ Ya votaste el {new Date(result.voto_timestamp).toLocaleString("es-AR")}
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
