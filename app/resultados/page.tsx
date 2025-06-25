@@ -589,7 +589,7 @@ export default function ResultadosPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList
-            className="flex flex-col sm:grid sm:grid-cols-3 w-full gap-1 sm:gap-2 bg-gray-100 rounded-lg p-1 py-3 sm:py-0"
+            className="flex flex-col sm:grid sm:grid-cols-3 w-full gap-1 sm:gap-2 bg-gray-100 rounded-lg p-1 py-4 sm:py-0"
           >
             <TabsTrigger
               value="candidatos"
