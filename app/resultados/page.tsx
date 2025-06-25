@@ -588,10 +588,27 @@ export default function ResultadosPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="flex flex-col sm:grid sm:grid-cols-3 w-full gap-1 sm:gap-2 py-2">
-            <TabsTrigger value="candidatos">Resultados Generales</TabsTrigger>
-            <TabsTrigger value="mesas">Resultados por Mesa</TabsTrigger>
-            <TabsTrigger value="padron">Padrón Electoral</TabsTrigger>
+          <TabsList
+            className="flex flex-col sm:grid sm:grid-cols-3 w-full gap-1 sm:gap-2 bg-gray-100 rounded-lg p-1 py-3 sm:py-0"
+          >
+            <TabsTrigger
+              value="candidatos"
+              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            >
+              Resultados Generales
+            </TabsTrigger>
+            <TabsTrigger
+              value="mesas"
+              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            >
+              Resultados por Mesa
+            </TabsTrigger>
+            <TabsTrigger
+              value="padron"
+              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            >
+              Padrón Electoral
+            </TabsTrigger>
           </TabsList>
 
           {/* Resultados Generales */}
