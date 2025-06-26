@@ -155,7 +155,7 @@ export default function PadronPage() {
             clase: fields[3]?.trim(),
             apellido_nombre: fields[4]?.trim(),
             domicilio: fields[5]?.trim(),
-            mesa: Number.parseInt(fields[6]?.trim()),
+            mesa: fields[6]?.trim(),
             orden: Number.parseInt(fields[7]?.trim()),
           })
         }
