@@ -133,7 +133,7 @@ export default function FiscalesPage() {
 
     // Verificar que la mesa no esté ya asignada (excepto si estamos editando el mismo fiscal)
     const mesaYaAsignada = fiscales.find(
-      (f) => f.mesa_asignada === Number.parseInt(formData.mesa_asignada) && f.activo && f.id !== editingFiscal?.id,
+      (f) => f.mesa_asignada === formData.mesa_asignada && f.activo && f.id !== editingFiscal?.id,
     )
 
     if (mesaYaAsignada) {
@@ -152,7 +152,7 @@ export default function FiscalesPage() {
           .from("fiscales")
           .update({
             nombre: formData.nombre.trim(),
-            mesa_asignada: Number.parseInt(formData.mesa_asignada),
+            mesa_asignada: formData.mesa_asignada,
             password: formData.password.trim(),
           })
           .eq("id", editingFiscal.id)
@@ -167,7 +167,7 @@ export default function FiscalesPage() {
         // Crear nuevo fiscal
         const { error } = await supabase.from("fiscales").insert({
           nombre: formData.nombre.trim(),
-          mesa_asignada: Number.parseInt(formData.mesa_asignada),
+          mesa_asignada: formData.mesa_asignada,
           password: formData.password.trim(),
           activo: true,
         })
