@@ -37,7 +37,7 @@ import { useToast } from "@/hooks/use-toast"
 
 export default function FiscalesPage() {
   const [fiscales, setFiscales] = useState<Fiscal[]>([])
-  const [mesas, setMesas] = useState<number[]>([])
+  const [mesas, setMesas] = useState<string[]>([])
   const [totalMesas, setTotalMesas] = useState(0)
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -90,7 +90,7 @@ export default function FiscalesPage() {
         if (mesasAltError) throw mesasAltError
 
         // Extraer mesas únicas manualmente
-        const mesasUnicas = Array.from(new Set(mesasAlternativas?.map((p) => p.mesa) || [])).sort((a, b) => a - b)
+        const mesasUnicas = Array.from(new Set(mesasAlternativas?.map((p) => p.mesa) || [])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         setMesas(mesasUnicas)
         setTotalMesas(mesasUnicas.length)
       } else {
@@ -199,7 +199,7 @@ export default function FiscalesPage() {
     setEditingFiscal(fiscal)
     setFormData({
       nombre: fiscal.nombre,
-      mesa_asignada: fiscal.mesa_asignada.toString(),
+      mesa_asignada: fiscal.mesa_asignada,
       password: fiscal.password,
     })
     setDialogOpen(true)
@@ -326,12 +326,12 @@ export default function FiscalesPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {editingFiscal && (
-                            <SelectItem value={editingFiscal.mesa_asignada.toString()}>
+                            <SelectItem value={editingFiscal.mesa_asignada}>
                               Mesa {editingFiscal.mesa_asignada} (actual)
                             </SelectItem>
                           )}
                           {getMesasDisponibles().map((mesa) => (
-                            <SelectItem key={mesa} value={mesa.toString()}>
+                            <SelectItem key={mesa} value={mesa}>
                               Mesa {mesa}
                             </SelectItem>
                           ))}

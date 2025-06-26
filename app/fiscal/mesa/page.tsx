@@ -93,7 +93,7 @@ export default function FiscalMesaPage() {
     }
   }
 
-  const loadVotantesMesa = async (mesa: number) => {
+  const loadVotantesMesa = async (mesa: string) => {
     try {
       const { data, error } = await supabase
         .from("padron")

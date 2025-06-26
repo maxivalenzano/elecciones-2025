@@ -7,14 +7,15 @@ import { Badge } from "@/components/ui/badge"
 import { BarChart3, Users, Vote } from "lucide-react"
 import { supabase, type Candidato, getConfiguracion } from "@/lib/supabase"
 
+// Interfaces actualizadas para usar mesa como string
 interface ResultadoCandidato extends Candidato {
   total_votos: number
   porcentaje: number
-  votos_por_mesa: { [mesa: number]: { votos: number; porcentaje: number } }
+  votos_por_mesa: { [mesa: string]: { votos: number; porcentaje: number } }
 }
 
 interface ResultadoMesa {
-  mesa: number
+  mesa: string
   total_votos: number
   candidatos: Array<{
     id: number
@@ -59,7 +60,7 @@ export function ResultadosPublicos() {
 
   const loadResultados = async () => {
     try {
-      // Cargar estadísticas del padrón
+      // Estadísticas del padrón
       const { data: statsData, count: totalPadronCount } = await supabase
         .from("padron")
         .select("voto_timestamp", { count: "exact" })
@@ -68,7 +69,7 @@ export function ResultadosPublicos() {
       const totalVotantes = statsData?.filter((p) => p.voto_timestamp).length || 0
       const porcentajeParticipacion = totalPadron > 0 ? Math.round((totalVotantes / totalPadron) * 100) : 0
 
-      // Cargar resultados por candidato y mesa
+      // Resultados de votos por mesa
       const { data: votosData } = await supabase.from("votos").select(`
         mesa,
         candidato_id,
@@ -81,34 +82,34 @@ export function ResultadosPublicos() {
         )
       `)
 
-      // Procesar resultados generales
+      // Mapas usando string como clave
       const resultadosMap = new Map<number, ResultadoCandidato>()
-      const mesasMap = new Map<number, ResultadoMesa>()
+      const mesasMap = new Map<string, ResultadoMesa>()
       let totalVotos = 0
 
       votosData?.forEach((voto: any) => {
         const candidatoId = voto.candidato_id
-        const mesa = voto.mesa
+        const mesaKey = String(voto.mesa)
         const votos = voto.cantidad_votos
         totalVotos += votos
 
-        // Resultados generales por candidato
+        // Resultados generales
         if (resultadosMap.has(candidatoId)) {
           const existing = resultadosMap.get(candidatoId)!
           existing.total_votos += votos
-          existing.votos_por_mesa[mesa] = { votos, porcentaje: 0 }
+          existing.votos_por_mesa[mesaKey] = { votos, porcentaje: 0 }
         } else {
           resultadosMap.set(candidatoId, {
             ...voto.candidatos,
             total_votos: votos,
             porcentaje: 0,
-            votos_por_mesa: { [mesa]: { votos, porcentaje: 0 } },
+            votos_por_mesa: { [mesaKey]: { votos, porcentaje: 0 } },
           })
         }
 
         // Resultados por mesa
-        if (mesasMap.has(mesa)) {
-          const existingMesa = mesasMap.get(mesa)!
+        if (mesasMap.has(mesaKey)) {
+          const existingMesa = mesasMap.get(mesaKey)!
           existingMesa.total_votos += votos
           existingMesa.candidatos.push({
             id: voto.candidatos.id,
@@ -119,8 +120,8 @@ export function ResultadosPublicos() {
             porcentaje: 0,
           })
         } else {
-          mesasMap.set(mesa, {
-            mesa,
+          mesasMap.set(mesaKey, {
+            mesa: mesaKey,
             total_votos: votos,
             candidatos: [
               {
@@ -136,20 +137,18 @@ export function ResultadosPublicos() {
         }
       })
 
-      // Calcular porcentajes generales
+      // Calcular porcentajes generales y por mesa
       const resultadosArray = Array.from(resultadosMap.values()).map((candidato) => {
         const porcentajeGeneral = totalVotos > 0 ? Math.round((candidato.total_votos / totalVotos) * 100) : 0
 
-        // Calcular porcentajes por mesa
-        Object.keys(candidato.votos_por_mesa).forEach((mesaStr) => {
-          const mesa = Number.parseInt(mesaStr)
-          const mesaData = mesasMap.get(mesa)
+        Object.keys(candidato.votos_por_mesa).forEach((mesaKey) => {
+          const mesaData = mesasMap.get(mesaKey)
           if (mesaData) {
-            const porcentajeMesa =
-              mesaData.total_votos > 0
-                ? Math.round((candidato.votos_por_mesa[mesa].votos / mesaData.total_votos) * 100)
-                : 0
-            candidato.votos_por_mesa[mesa].porcentaje = porcentajeMesa
+            const votosMesa = candidato.votos_por_mesa[mesaKey].votos
+            const porcentajeMesa = mesaData.total_votos > 0
+              ? Math.round((votosMesa / mesaData.total_votos) * 100)
+              : 0
+            candidato.votos_por_mesa[mesaKey].porcentaje = porcentajeMesa
           }
         })
 
@@ -159,7 +158,6 @@ export function ResultadosPublicos() {
         }
       })
 
-      // Calcular porcentajes por mesa
       const resultadosMesaArray = Array.from(mesasMap.values()).map((mesa) => ({
         ...mesa,
         candidatos: mesa.candidatos.map((candidato) => ({
@@ -168,9 +166,9 @@ export function ResultadosPublicos() {
         })),
       }))
 
-      // Ordenar resultados
+      // Ordenar
       resultadosArray.sort((a, b) => b.total_votos - a.total_votos)
-      resultadosMesaArray.sort((a, b) => a.mesa - b.mesa)
+      resultadosMesaArray.sort((a, b) => a.mesa.localeCompare(b.mesa, undefined, { numeric: true }))
       resultadosMesaArray.forEach((mesa) => {
         mesa.candidatos.sort((a, b) => b.votos - a.votos)
       })
@@ -198,22 +196,8 @@ export function ResultadosPublicos() {
   }
 
   if (!resultadosPublicos) {
-    return ( <div /> )
+    return <div />
   }
-
-  {/* 
-      <div className="max-w-2xl mx-auto mb-8">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <BarChart3 className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Resultados no disponibles</h2>
-            <p className="text-gray-600">
-              Los resultados se publicarán una vez finalizada la jornada electoral.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-     */}
 
   return (
     <div className="max-w-6xl mx-auto mb-8 space-y-6">

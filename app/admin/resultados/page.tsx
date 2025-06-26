@@ -12,7 +12,7 @@ import { supabase, type Candidato } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 interface ResultadoMesa {
-  mesa: number
+  mesa: string
   candidato_id: number
   cantidad_votos: number
   candidatos: Candidato
@@ -21,13 +21,13 @@ interface ResultadoMesa {
 interface ResumenCandidato extends Candidato {
   total_votos: number
   porcentaje: number
-  votos_por_mesa: { [mesa: number]: number }
+  votos_por_mesa: { [mesa: string]: number }
 }
 
 export default function ResultadosAdminPage() {
   const [resultados, setResultados] = useState<ResultadoMesa[]>([])
   const [resumen, setResumen] = useState<ResumenCandidato[]>([])
-  const [mesas, setMesas] = useState<number[]>([])
+  const [mesas, setMesas] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [totalVotos, setTotalVotos] = useState(0)
   const router = useRouter()
@@ -66,7 +66,7 @@ export default function ResultadosAdminPage() {
       setResultados(resultadosData || [])
 
       // Obtener mesas únicas
-      const mesasUnicas = Array.from(new Set(resultadosData?.map((r) => r.mesa) || [])).sort((a, b) => a - b)
+      const mesasUnicas = Array.from(new Set(resultadosData?.map((r) => r.mesa) || [])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
       setMesas(mesasUnicas)
 
       // Calcular resumen por candidato

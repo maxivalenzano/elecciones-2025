@@ -28,11 +28,11 @@ import { supabase, type Candidato, type PadronRecord, type Etiqueta } from "@/li
 interface ResultadoCandidato extends Candidato {
   total_votos: number
   porcentaje: number
-  votos_por_mesa: { [mesa: number]: { votos: number; porcentaje: number } }
+  votos_por_mesa: { [mesa: string]: { votos: number; porcentaje: number } }
 }
 
 interface ResultadoMesa {
-  mesa: number
+  mesa: string
   total_votos: number
   candidatos: Array<{
     id: number
@@ -58,7 +58,7 @@ export default function ResultadosPage() {
   const [resultados, setResultados] = useState<ResultadoCandidato[]>([])
   const [resultadosPorMesa, setResultadosPorMesa] = useState<ResultadoMesa[]>([])
   const [padronPaginado, setPadronPaginado] = useState<PadronRecord[]>([])
-  const [mesas, setMesas] = useState<number[]>([])
+  const [mesas, setMesas] = useState<string[]>([])
   const [loadingMesas, setLoadingMesas] = useState(true)
   const [stats, setStats] = useState({
     totalVotos: 0,
@@ -128,7 +128,7 @@ export default function ResultadosPage() {
   const loadAllMesas = async () => {
     setLoadingMesas(true)
     try {
-      let mesasUnicas: number[] = []
+      let mesasUnicas: string[] = []
 
       try {
         const { data: mesasData, error: mesasError } = await supabase.rpc("get_mesas_unicas").single()
@@ -136,7 +136,7 @@ export default function ResultadosPage() {
         if (mesasError) {
           console.log("Función get_mesas_unicas no encontrada, usando método alternativo...")
 
-          let allMesas: number[] = []
+          let allMesas: string[] = []
           let hasMore = true
           let offset = 0
           const batchSize = 1000
@@ -164,14 +164,14 @@ export default function ResultadosPage() {
             }
           }
 
-          mesasUnicas = Array.from(new Set(allMesas)).sort((a, b) => a - b)
+          mesasUnicas = Array.from(new Set(allMesas)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         } else {
           mesasUnicas = mesasData.mesas || []
         }
       } catch (error) {
         console.error("Error obteniendo mesas:", error)
         const { data: fallbackData } = await supabase.from("padron").select("mesa").order("mesa", { ascending: true })
-        mesasUnicas = Array.from(new Set(fallbackData?.map((p) => p.mesa) || [])).sort((a, b) => a - b)
+        mesasUnicas = Array.from(new Set(fallbackData?.map((p) => p.mesa) || [])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
       }
 
       setMesas(mesasUnicas)
@@ -212,7 +212,7 @@ export default function ResultadosPage() {
 
       // Procesar resultados generales
       const resultadosMap = new Map<number, ResultadoCandidato>()
-      const mesasMap = new Map<number, ResultadoMesa>()
+      const mesasMap = new Map<string, ResultadoMesa>()
       let totalVotos = 0
 
       votosData?.forEach((voto: any) => {
@@ -271,7 +271,7 @@ export default function ResultadosPage() {
 
         // Calcular porcentajes por mesa
         Object.keys(candidato.votos_por_mesa).forEach((mesaStr) => {
-          const mesa = Number.parseInt(mesaStr)
+          const mesa = mesaStr
           const mesaData = mesasMap.get(mesa)
           if (mesaData) {
             const porcentajeMesa =
@@ -299,7 +299,7 @@ export default function ResultadosPage() {
 
       // Ordenar resultados
       resultadosArray.sort((a, b) => b.total_votos - a.total_votos)
-      resultadosMesaArray.sort((a, b) => a.mesa - b.mesa)
+      resultadosMesaArray.sort((a, b) => a.mesa.localeCompare(b.mesa))
       resultadosMesaArray.forEach((mesa) => {
         mesa.candidatos.sort((a, b) => b.votos - a.votos)
       })
@@ -381,7 +381,7 @@ export default function ResultadosPage() {
       }
 
       if (filtros.mesa !== "todas") {
-        query = query.eq("mesa", Number.parseInt(filtros.mesa))
+        query = query.eq("mesa", filtros.mesa)
       }
 
       query = query.range(offset, offset + recordsPerPage - 1)
@@ -761,7 +761,7 @@ export default function ResultadosPage() {
                           {loadingMesas ? "Cargando mesas..." : `Todas las mesas (${mesas.length})`}
                         </SelectItem>
                         {mesas.map((mesa) => (
-                          <SelectItem key={mesa} value={mesa.toString()}>
+                          <SelectItem key={mesa} value={mesa}>
                             Mesa {mesa}
                           </SelectItem>
                         ))}

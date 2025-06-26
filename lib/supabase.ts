@@ -13,7 +13,7 @@ export interface PadronRecord {
   clase: string
   apellido_nombre: string
   domicilio: string
-  mesa: number
+  mesa: string
   orden: number
   voto_timestamp: string | null
   created_at: string
@@ -31,7 +31,7 @@ export interface Candidato {
 export interface Fiscal {
   id: number
   nombre: string
-  mesa_asignada: number
+  mesa_asignada: string
   password: string
   activo: boolean
   created_at: string
@@ -39,7 +39,7 @@ export interface Fiscal {
 
 export interface Voto {
   id: number
-  mesa: number
+  mesa: string
   candidato_id: number
   cantidad_votos: number
   created_at: string
