@@ -1,49 +1,63 @@
-BEGIN;
+-- Crear tabla de padrón electoral
+CREATE TABLE IF NOT EXISTS padron (
+    id SERIAL PRIMARY KEY,
+    dni VARCHAR(20) NOT NULL UNIQUE,
+    sexo VARCHAR(1),
+    clase VARCHAR(10),
+    apellido_nombre TEXT NOT NULL,
+    domicilio TEXT,
+    mesa INTEGER NOT NULL,
+    orden INTEGER NOT NULL,
+    voto_timestamp TIMESTAMP DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
 
--- 1. Eliminar índices que dependen de mesa
-DROP INDEX IF EXISTS idx_padron_mesa;
-DROP INDEX IF EXISTS idx_padron_mesa_distinct;
-DROP INDEX IF EXISTS idx_votos_mesa;
+-- Crear tabla de candidatos
+CREATE TABLE IF NOT EXISTS candidatos (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL,
+    partido VARCHAR(255),
+    color VARCHAR(7) DEFAULT '#3B82F6',
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
 
--- 2. Modificar el tipo de dato de mesa en las tablas afectadas
-ALTER TABLE padron
-  ALTER COLUMN mesa TYPE VARCHAR USING mesa::VARCHAR;
+-- Crear tabla de fiscales
+CREATE TABLE IF NOT EXISTS fiscales (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL,
+    mesa_asignada INTEGER,
+    password VARCHAR(255) NOT NULL,
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
 
-ALTER TABLE fiscales
-  ALTER COLUMN mesa_asignada TYPE VARCHAR USING mesa_asignada::VARCHAR;
+-- Crear tabla de votos por mesa y candidato
+CREATE TABLE IF NOT EXISTS votos (
+    id SERIAL PRIMARY KEY,
+    mesa INTEGER NOT NULL,
+    candidato_id INTEGER REFERENCES candidatos(id),
+    cantidad_votos INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(mesa, candidato_id)
+);
 
-ALTER TABLE votos
-  ALTER COLUMN mesa TYPE VARCHAR USING mesa::VARCHAR;
+-- Crear índices para optimizar búsquedas
+CREATE INDEX IF NOT EXISTS idx_padron_dni ON padron(dni);
+CREATE INDEX IF NOT EXISTS idx_padron_apellido_nombre ON padron(apellido_nombre);
+CREATE INDEX IF NOT EXISTS idx_padron_mesa ON padron(mesa);
+CREATE INDEX IF NOT EXISTS idx_votos_mesa ON votos(mesa);
 
--- 3. Ajustar la restricción UNIQUE en votos
-ALTER TABLE votos
-  DROP CONSTRAINT IF EXISTS votos_mesa_candidato_id_key,
-  ADD CONSTRAINT votos_mesa_candidato_id_key UNIQUE(mesa, candidato_id);
-
--- 4. Recrear índices para optimizar consultas por mesa
-CREATE INDEX idx_padron_mesa ON padron(mesa);
-CREATE INDEX idx_padron_mesa_distinct ON padron(mesa);
-CREATE INDEX idx_votos_mesa ON votos(mesa);
-
--- 5. Reemplazar la función get_mesas_unicas() para trabajar con texto
-DROP FUNCTION IF EXISTS get_mesas_unicas();
-
-CREATE OR REPLACE FUNCTION get_mesas_unicas()
-RETURNS TABLE(mesas text[], total integer) AS $$
+-- Crear función para actualizar updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
 BEGIN
-  RETURN QUERY
-  WITH mesas_ordenadas AS (
-    SELECT DISTINCT mesa
-      FROM padron
-    ORDER BY mesa
-  )
-  SELECT
-    ARRAY(SELECT mesa FROM mesas_ordenadas) AS mesas,
-    (SELECT COUNT(DISTINCT mesa) FROM padron)::integer AS total;
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
-COMMENT ON FUNCTION get_mesas_unicas() IS
-  'Obtiene todas las mesas únicas del padrón de manera eficiente, retornando un array de mesas (texto) y el total';
-
-COMMIT;
+-- Crear trigger para votos
+CREATE TRIGGER update_votos_updated_at BEFORE UPDATE ON votos
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
