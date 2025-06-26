@@ -151,6 +151,14 @@ export default function BuscarPage() {
             </CardContent>
           </Card>
         )}
+
+        {result.voto_timestamp && (
+          <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+            <p className="text-yellow-800 font-semibold">
+              ✓ Votó el {new Date(result.voto_timestamp).toLocaleString("es-AR")}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
