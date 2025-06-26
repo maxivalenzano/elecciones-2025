@@ -155,7 +155,15 @@ export default function BuscarPage() {
         {result?.voto_timestamp && (
           <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
             <p className="text-yellow-800 font-semibold">
-              ✓ Votó el {new Date(result.voto_timestamp).toLocaleString("es-AR")}
+              ✓ Votó a las{" "}
+              {new Date(result.voto_timestamp + "Z").toLocaleString("es-AR", {
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+              {" "}
+              hs
             </p>
           </div>
         )}
