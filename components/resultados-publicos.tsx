@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, Users, Vote } from "lucide-react"
 import { supabase, type Candidato, getConfiguracion } from "@/lib/supabase"
+import { useElectionStats } from "@/hooks/use-election-stats"
 
 // Interfaces actualizadas para usar mesa como string
 interface ResultadoCandidato extends Candidato {
@@ -32,12 +33,9 @@ export function ResultadosPublicos() {
   const [loading, setLoading] = useState(true)
   const [resultados, setResultados] = useState<ResultadoCandidato[]>([])
   const [resultadosPorMesa, setResultadosPorMesa] = useState<ResultadoMesa[]>([])
-  const [stats, setStats] = useState({
-    totalVotos: 0,
-    totalPadron: 0,
-    totalVotantes: 0,
-    porcentajeParticipacion: 0,
-  })
+  
+  // Usar el hook centralizado para estadísticas
+  const { totalPadron, totalVotantes, porcentajeParticipacion, totalVotos, loading: statsLoading } = useElectionStats()
 
   useEffect(() => {
     checkResultadosPublicos()
@@ -60,15 +58,6 @@ export function ResultadosPublicos() {
 
   const loadResultados = async () => {
     try {
-      // Estadísticas del padrón
-      const { data: statsData, count: totalPadronCount } = await supabase
-        .from("padron")
-        .select("voto_timestamp", { count: "exact" })
-
-      const totalPadron = totalPadronCount || 0
-      const totalVotantes = statsData?.filter((p) => p.voto_timestamp).length || 0
-      const porcentajeParticipacion = totalPadron > 0 ? Math.round((totalVotantes / totalPadron) * 100) : 0
-
       // Resultados de votos por mesa
       const { data: votosData } = await supabase.from("votos").select(`
         mesa,
@@ -85,13 +74,13 @@ export function ResultadosPublicos() {
       // Mapas usando string como clave
       const resultadosMap = new Map<number, ResultadoCandidato>()
       const mesasMap = new Map<string, ResultadoMesa>()
-      let totalVotos = 0
+      let totalVotosCalculado = 0
 
       votosData?.forEach((voto: any) => {
         const candidatoId = voto.candidato_id
         const mesaKey = String(voto.mesa)
         const votos = voto.cantidad_votos
-        totalVotos += votos
+        totalVotosCalculado += votos
 
         // Resultados generales
         if (resultadosMap.has(candidatoId)) {
@@ -139,7 +128,7 @@ export function ResultadosPublicos() {
 
       // Calcular porcentajes generales y por mesa
       const resultadosArray = Array.from(resultadosMap.values()).map((candidato) => {
-        const porcentajeGeneral = totalVotos > 0 ? Math.round((candidato.total_votos / totalVotos) * 100) : 0
+        const porcentajeGeneral = totalVotosCalculado > 0 ? Math.round((candidato.total_votos / totalVotosCalculado) * 100) : 0
 
         Object.keys(candidato.votos_por_mesa).forEach((mesaKey) => {
           const mesaData = mesasMap.get(mesaKey)
@@ -175,18 +164,12 @@ export function ResultadosPublicos() {
 
       setResultados(resultadosArray)
       setResultadosPorMesa(resultadosMesaArray)
-      setStats({
-        totalVotos,
-        totalPadron,
-        totalVotantes,
-        porcentajeParticipacion,
-      })
     } catch (error) {
       console.error("Error loading resultados:", error)
     }
   }
 
-  if (loading) {
+  if (loading || statsLoading) {
     return (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -207,7 +190,7 @@ export function ResultadosPublicos() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-blue-600">{stats.totalPadron.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
                 <p className="text-sm text-gray-600">Total Padrón</p>
               </div>
               <Users className="h-8 w-8 text-blue-600" />
@@ -219,7 +202,7 @@ export function ResultadosPublicos() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-green-600">{stats.totalVotos.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
                 <p className="text-sm text-gray-600">Votos Emitidos</p>
               </div>
               <Vote className="h-8 w-8 text-green-600" />
@@ -231,7 +214,7 @@ export function ResultadosPublicos() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-purple-600">{stats.porcentajeParticipacion}%</div>
+                <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
                 <p className="text-sm text-gray-600">Participación</p>
               </div>
               <BarChart3 className="h-8 w-8 text-purple-600" />
@@ -244,7 +227,7 @@ export function ResultadosPublicos() {
       <Card>
         <CardHeader>
           <CardTitle>Resultados Generales</CardTitle>
-          <CardDescription>Total: {stats.totalVotos.toLocaleString()} votos</CardDescription>
+          <CardDescription>Total: {totalVotos.toLocaleString()} votos</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {resultados.length > 0 ? (

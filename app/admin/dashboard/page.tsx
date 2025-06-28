@@ -9,22 +9,18 @@ import { Users, Vote, BarChart3, Upload, UserPlus, Settings, LogOut, FileText, T
 import { useRouter } from "next/navigation"
 import { supabase, type Candidato, type Fiscal } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useElectionStats } from "@/hooks/use-election-stats"
 import Link from "next/link"
 import { AdminMobileNav } from "@/components/admin-mobile-nav"
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    totalPadron: 0,
-    totalVotantes: 0,
-    porcentajeParticipacion: 0,
-    totalMesas: 0,
-  })
   const [candidatos, setCandidatos] = useState<Candidato[]>([])
   const [fiscales, setFiscales] = useState<Fiscal[]>([])
   const [loading, setLoading] = useState(true)
 
   const router = useRouter()
   const { toast } = useToast()
+  const { totalPadron, totalVotantes, porcentajeParticipacion, totalMesas, loading: statsLoading, error: statsError, refresh: refreshStats } = useElectionStats()
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin")
@@ -38,49 +34,6 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      // CORREGIDO: Cargar estadísticas del padrón usando count: "exact" para obtener el total exacto
-      const { data: padronData, count: totalPadronCount } = await supabase
-        .from("padron")
-        .select("mesa, voto_timestamp", { count: "exact" })
-
-      const totalPadron = totalPadronCount || 0
-      const totalVotantes = padronData?.filter((p) => p.voto_timestamp).length || 0
-      const porcentajeParticipacion = totalPadron > 0 ? Math.round((totalVotantes / totalPadron) * 100) : 0
-
-      // CORREGIDO: Obtener el total REAL de mesas usando la función optimizada
-      let totalMesas = 0
-      try {
-        const { data: mesasData, error: mesasError } = await supabase.rpc("get_mesas_unicas").single()
-
-        if (mesasError) {
-          console.log("Función get_mesas_unicas no encontrada, usando método alternativo...")
-          // Método alternativo: obtener todas las mesas
-          const { data: mesasAlternativas, error: mesasAltError } = await supabase
-            .from("padron")
-            .select("mesa")
-            .order("mesa", { ascending: true })
-
-          if (mesasAltError) throw mesasAltError
-
-          const mesasUnicas = new Set(mesasAlternativas?.map((p) => p.mesa) || [])
-          totalMesas = mesasUnicas.size
-        } else {
-          totalMesas = mesasData.total || 0
-        }
-      } catch (error) {
-        console.error("Error obteniendo mesas:", error)
-        // Fallback: contar mesas de los datos ya cargados
-        const mesasUnicas = new Set(padronData?.map((p) => p.mesa) || [])
-        totalMesas = mesasUnicas.size
-      }
-
-      setStats({
-        totalPadron,
-        totalVotantes,
-        porcentajeParticipacion,
-        totalMesas,
-      })
-
       // Cargar candidatos
       const { data: candidatosData, error: candidatosError } = await supabase
         .from("candidatos")
@@ -117,8 +70,19 @@ export default function AdminDashboard() {
     router.push("/")
   }
 
-  if (loading) {
+  if (loading || statsLoading) {
     return <div className="container mx-auto px-4 py-8">Cargando...</div>
+  }
+
+  if (statsError) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-red-600">
+          <p>Error al cargar estadísticas: {statsError}</p>
+          <Button onClick={refreshStats} className="mt-4">Reintentar</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -135,13 +99,13 @@ export default function AdminDashboard() {
           </Button>
         </div>
 
-        {/* CORREGIDO: Estadísticas principales con totales exactos */}
+        {/* Estadísticas principales con totales exactos */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">{stats.totalPadron.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
                   <p className="text-sm text-gray-600">Total Padrón</p>
                   <p className="text-xs text-gray-500">Registros completos</p>
                 </div>
@@ -154,9 +118,9 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">{stats.totalVotantes.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-green-600">{totalVotantes.toLocaleString()}</div>
                   <p className="text-sm text-gray-600">Ya Votaron</p>
-                  <p className="text-xs text-gray-500">De {stats.totalPadron.toLocaleString()} total</p>
+                  <p className="text-xs text-gray-500">De {totalPadron.toLocaleString()} total</p>
                 </div>
                 <Vote className="h-8 w-8 text-green-600" />
               </div>
@@ -167,10 +131,10 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{stats.porcentajeParticipacion}%</div>
+                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
                   <p className="text-sm text-gray-600">Participación</p>
                   <p className="text-xs text-gray-500">
-                    {stats.totalVotantes.toLocaleString()} / {stats.totalPadron.toLocaleString()}
+                    {totalVotantes.toLocaleString()} / {totalPadron.toLocaleString()}
                   </p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-purple-600" />
@@ -182,7 +146,7 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-orange-600">{stats.totalMesas}</div>
+                  <div className="text-2xl font-bold text-orange-600">{totalMesas}</div>
                   <p className="text-sm text-gray-600">Total Mesas</p>
                   <p className="text-xs text-gray-500">Todas las mesas</p>
                 </div>
@@ -196,9 +160,9 @@ export default function AdminDashboard() {
         <AdminMobileNav
           currentPage="overview"
           stats={{
-            totalPadron: stats.totalPadron,
-            totalVotantes: stats.totalVotantes,
-            porcentajeParticipacion: stats.porcentajeParticipacion,
+            totalPadron,
+            totalVotantes,
+            porcentajeParticipacion,
           }}
         />
 
@@ -273,7 +237,7 @@ export default function AdminDashboard() {
                 <CardHeader>
                   <CardTitle>Estado de Fiscales</CardTitle>
                   <CardDescription>
-                    {fiscales.length} fiscales activos de {stats.totalMesas} mesas totales
+                    {fiscales.length} fiscales activos de {totalMesas} mesas totales
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -287,11 +251,11 @@ export default function AdminDashboard() {
                     {fiscales.length > 5 && (
                       <p className="text-sm text-gray-500">Y {fiscales.length - 5} fiscales más...</p>
                     )}
-                    {fiscales.length < stats.totalMesas && (
+                    {fiscales.length < totalMesas && (
                       <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded">
                         <p className="text-sm text-orange-800">
-                          ⚠️ {stats.totalMesas - fiscales.length} mesa
-                          {stats.totalMesas - fiscales.length !== 1 ? "s" : ""} sin fiscal asignado
+                          ⚠️ {totalMesas - fiscales.length} mesa
+                          {totalMesas - fiscales.length !== 1 ? "s" : ""} sin fiscal asignado
                         </p>
                       </div>
                     )}

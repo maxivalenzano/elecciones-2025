@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { supabase, type Candidato, type PadronRecord, type Etiqueta } from "@/lib/supabase"
+import { useElectionStats } from "@/hooks/use-election-stats"
 
 interface ResultadoCandidato extends Candidato {
   total_votos: number
@@ -53,23 +54,29 @@ interface PaginationInfo {
   endRecord: number
 }
 
+// Extender el tipo PadronRecord para incluir etiquetas
+interface PadronRecordWithEtiquetas extends PadronRecord {
+  etiquetas?: Array<{
+    id: number
+    nombre: string
+    color: string
+  }>
+}
+
 export default function ResultadosPage() {
   const [activeTab, setActiveTab] = useState("candidatos")
   const [resultados, setResultados] = useState<ResultadoCandidato[]>([])
   const [resultadosPorMesa, setResultadosPorMesa] = useState<ResultadoMesa[]>([])
-  const [padronPaginado, setPadronPaginado] = useState<PadronRecord[]>([])
+  const [padronPaginado, setPadronPaginado] = useState<PadronRecordWithEtiquetas[]>([])
   const [mesas, setMesas] = useState<string[]>([])
   const [loadingMesas, setLoadingMesas] = useState(true)
-  const [stats, setStats] = useState({
-    totalVotos: 0,
-    totalPadron: 0,
-    totalVotantes: 0,
-    porcentajeParticipacion: 0,
-  })
   const [loading, setLoading] = useState(true)
   const [loadingPadron, setLoadingPadron] = useState(false)
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([])
   const router = useRouter()
+
+  // Usar el hook centralizado para estadísticas
+  const { totalPadron, totalVotantes, porcentajeParticipacion, totalVotos, loading: statsLoading } = useElectionStats()
 
   // Paginación y filtros para el padrón
   const [pagination, setPagination] = useState<PaginationInfo>({
@@ -166,7 +173,7 @@ export default function ResultadosPage() {
 
           mesasUnicas = Array.from(new Set(allMesas)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         } else {
-          mesasUnicas = mesasData.mesas || []
+          mesasUnicas = (mesasData as { mesas: string[] })?.mesas || []
         }
       } catch (error) {
         console.error("Error obteniendo mesas:", error)
@@ -189,14 +196,6 @@ export default function ResultadosPage() {
       const { data: etiquetasData } = await supabase.from("etiquetas").select("*").eq("activa", true).order("nombre")
       setEtiquetas(etiquetasData || [])
 
-      const { data: statsData, count: totalPadronCount } = await supabase
-        .from("padron")
-        .select("voto_timestamp", { count: "exact" })
-
-      const totalPadron = totalPadronCount || 0
-      const totalVotantes = statsData?.filter((p) => p.voto_timestamp).length || 0
-      const porcentajeParticipacion = totalPadron > 0 ? Math.round((totalVotantes / totalPadron) * 100) : 0
-
       // Cargar resultados por candidato y mesa
       const { data: votosData } = await supabase.from("votos").select(`
         mesa,
@@ -213,13 +212,13 @@ export default function ResultadosPage() {
       // Procesar resultados generales
       const resultadosMap = new Map<number, ResultadoCandidato>()
       const mesasMap = new Map<string, ResultadoMesa>()
-      let totalVotos = 0
+      let totalVotosCalculado = 0
 
       votosData?.forEach((voto: any) => {
         const candidatoId = voto.candidato_id
         const mesa = voto.mesa
         const votos = voto.cantidad_votos
-        totalVotos += votos
+        totalVotosCalculado += votos
 
         // Resultados generales por candidato
         if (resultadosMap.has(candidatoId)) {
@@ -267,7 +266,7 @@ export default function ResultadosPage() {
 
       // Calcular porcentajes generales
       const resultadosArray = Array.from(resultadosMap.values()).map((candidato) => {
-        const porcentajeGeneral = totalVotos > 0 ? Math.round((candidato.total_votos / totalVotos) * 100) : 0
+        const porcentajeGeneral = totalVotosCalculado > 0 ? Math.round((candidato.total_votos / totalVotosCalculado) * 100) : 0
 
         // Calcular porcentajes por mesa
         Object.keys(candidato.votos_por_mesa).forEach((mesaStr) => {
@@ -306,12 +305,6 @@ export default function ResultadosPage() {
 
       setResultados(resultadosArray)
       setResultadosPorMesa(resultadosMesaArray)
-      setStats({
-        totalVotos,
-        totalPadron,
-        totalVotantes,
-        porcentajeParticipacion,
-      })
 
       setPagination((prev) => ({
         ...prev,
@@ -520,7 +513,7 @@ export default function ResultadosPage() {
     </div>
   )
 
-  if (loading) {
+  if (loading || statsLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">Cargando resultados...</div>
@@ -548,7 +541,7 @@ export default function ResultadosPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">{stats.totalPadron.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
                   <p className="text-sm text-gray-600">Total Padrón</p>
                   <p className="text-xs text-gray-500 mt-1">Click para ver detalle</p>
                 </div>
@@ -561,7 +554,7 @@ export default function ResultadosPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">{stats.totalVotos.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
                   <p className="text-sm text-gray-600">Votos Emitidos</p>
                   <p className="text-xs text-gray-500 mt-1">Click para ver resultados</p>
                 </div>
@@ -574,10 +567,10 @@ export default function ResultadosPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{stats.porcentajeParticipacion}%</div>
+                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
                   <p className="text-sm text-gray-600">Participación</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {stats.totalVotantes.toLocaleString()} de {stats.totalPadron.toLocaleString()}
+                    {totalVotantes.toLocaleString()} de {totalPadron.toLocaleString()}
                   </p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-purple-600" />
@@ -617,7 +610,7 @@ export default function ResultadosPage() {
               <CardHeader>
                 <CardTitle>Resultados Generales</CardTitle>
                 <CardDescription>
-                  Distribución total de votos - Total: {stats.totalVotos.toLocaleString()} votos
+                  Distribución total de votos - Total: {totalVotos.toLocaleString()} votos
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -708,8 +701,8 @@ export default function ResultadosPage() {
               <CardHeader>
                 <CardTitle>Padrón Electoral</CardTitle>
                 <CardDescription>
-                  Listado del padrón con filtros y paginación - {stats.totalPadron.toLocaleString()} registros totales (
-                  {stats.totalVotantes.toLocaleString()} ya votaron - {stats.porcentajeParticipacion}%) - {mesas.length}{" "}
+                  Listado: {totalPadron.toLocaleString()} electores,{" "}
+                  {totalVotantes.toLocaleString()} ya votaron - {mesas.length}{" "}
                   mesas disponibles
                 </CardDescription>
               </CardHeader>
@@ -948,11 +941,11 @@ export default function ResultadosPage() {
           </TabsContent>
         </Tabs>
 
-        {stats.totalVotos > 0 && (
+        {totalVotos > 0 && (
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>
               Última actualización: {new Date().toLocaleString("es-AR")} | Datos basados en{" "}
-              {stats.totalPadron.toLocaleString()} registros totales | {mesas.length} mesas disponibles
+              {totalPadron.toLocaleString()} registros totales | {mesas.length} mesas disponibles
             </p>
           </div>
         )}

@@ -13,21 +13,20 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useElectionStats } from "@/hooks/use-election-stats"
 
 export default function PadronPage() {
-  const [stats, setStats] = useState({
-    totalRegistros: 0,
-    totalVotantes: 0,
-    totalMesas: 0,
-    ultimaCarga: null as string | null,
-    porcentajeParticipacion: 0,
-  })
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [csvContent, setCsvContent] = useState("")
   const [previewData, setPreviewData] = useState<any[]>([])
+  const [ultimaCarga, setUltimaCarga] = useState<string | null>(null)
+  
   const router = useRouter()
   const { toast } = useToast()
+  
+  // Usar el hook centralizado para estadísticas
+  const { totalPadron, totalVotantes, porcentajeParticipacion, totalMesas, loading: statsLoading, refresh: refreshStats } = useElectionStats()
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin")
@@ -35,66 +34,23 @@ export default function PadronPage() {
       router.push("/admin")
       return
     }
-    loadStats()
+    loadUltimaCarga()
   }, [router])
 
-  const loadStats = async () => {
+  const loadUltimaCarga = async () => {
     try {
-      // Usar count: "exact" para obtener el total real de registros
-      const { data: padronData, count: totalRegistros } = await supabase
+      // Obtener la fecha más reciente de creación
+      const { data: padronData } = await supabase
         .from("padron")
-        .select("mesa, created_at, voto_timestamp", { count: "exact" })
+        .select("created_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
 
-      const totalVotantes = padronData?.filter((p) => p.voto_timestamp).length || 0
-      const porcentajeParticipacion =
-        totalRegistros && totalRegistros > 0 ? Math.round((totalVotantes / totalRegistros) * 100) : 0
-
-      // Obtener TODAS las mesas únicas usando la función SQL optimizada
-      let totalMesas = 0
-      try {
-        const { data: mesasData, error: mesasError } = await supabase.rpc("get_mesas_unicas").single()
-
-        if (mesasError) {
-          console.log("Función get_mesas_unicas no encontrada, usando método alternativo...")
-          // Método alternativo: obtener todas las mesas con una consulta específica
-          const { data: mesasAlternativas, error: mesasAltError } = await supabase
-            .from("padron")
-            .select("mesa")
-            .order("mesa", { ascending: true })
-
-          if (mesasAltError) throw mesasAltError
-
-          // Extraer mesas únicas manualmente del total de registros
-          const mesasUnicas = new Set(mesasAlternativas?.map((p) => p.mesa) || [])
-          totalMesas = mesasUnicas.size
-        } else {
-          totalMesas = mesasData.total || 0
-        }
-      } catch (error) {
-        console.error("Error obteniendo mesas:", error)
-        // Fallback: contar mesas de los datos ya cargados
-        const mesasUnicas = new Set(padronData?.map((p) => p.mesa) || [])
-        totalMesas = mesasUnicas.size
+      if (padronData && padronData.length > 0) {
+        setUltimaCarga(padronData[0].created_at)
       }
-
-      // Encontrar la fecha más reciente
-      const fechas = padronData?.map((p) => new Date(p.created_at)) || []
-      const ultimaCarga = fechas.length > 0 ? fechas.reduce((a, b) => (a > b ? a : b)).toISOString() : null
-
-      setStats({
-        totalRegistros: totalRegistros || 0,
-        totalVotantes,
-        totalMesas,
-        ultimaCarga,
-        porcentajeParticipacion,
-      })
     } catch (error) {
-      console.error("Error loading stats:", error)
-      toast({
-        title: "Error",
-        description: "Error al cargar estadísticas",
-        variant: "destructive",
-      })
+      console.error("Error loading last update:", error)
     } finally {
       setLoading(false)
     }
@@ -193,7 +149,8 @@ export default function PadronPage() {
       // Limpiar formulario y recargar stats
       setCsvContent("")
       setPreviewData([])
-      loadStats()
+      refreshStats()
+      loadUltimaCarga()
     } catch (error) {
       console.error("Error processing CSV:", error)
       toast({
@@ -206,7 +163,7 @@ export default function PadronPage() {
     }
   }
 
-  if (loading) {
+  if (loading || statsLoading) {
     return <div className="container mx-auto px-4 py-8">Cargando...</div>
   }
 
@@ -226,13 +183,13 @@ export default function PadronPage() {
           </div>
         </div>
 
-        {/* Estadísticas actuales - CORREGIDAS */}
+        {/* Estadísticas actuales usando el hook centralizado */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">{stats.totalRegistros.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
                   <p className="text-sm text-gray-600">Total Registros</p>
                   <p className="text-xs text-gray-500">Padrón completo</p>
                 </div>
@@ -245,9 +202,9 @@ export default function PadronPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">{stats.totalVotantes.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-green-600">{totalVotantes.toLocaleString()}</div>
                   <p className="text-sm text-gray-600">Ya Votaron</p>
-                  <p className="text-xs text-gray-500">Sobre {stats.totalRegistros.toLocaleString()} total</p>
+                  <p className="text-xs text-gray-500">Sobre {totalPadron.toLocaleString()} total</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
@@ -258,10 +215,10 @@ export default function PadronPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{stats.porcentajeParticipacion}%</div>
+                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
                   <p className="text-sm text-gray-600">Participación</p>
                   <p className="text-xs text-gray-500">
-                    {stats.totalVotantes.toLocaleString()} / {stats.totalRegistros.toLocaleString()}
+                    {totalVotantes.toLocaleString()} / {totalPadron.toLocaleString()}
                   </p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-purple-600" />
@@ -273,7 +230,7 @@ export default function PadronPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-orange-600">{stats.totalMesas}</div>
+                  <div className="text-2xl font-bold text-orange-600">{totalMesas}</div>
                   <p className="text-sm text-gray-600">Total Mesas</p>
                   <p className="text-xs text-gray-500">Todas las mesas</p>
                 </div>
@@ -284,7 +241,7 @@ export default function PadronPage() {
         </div>
 
         {/* Información de última carga - MEJORADA */}
-        {stats.ultimaCarga && (
+        {ultimaCarga && (
           <Card className="mb-6 border-green-200 bg-green-50">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -292,15 +249,15 @@ export default function PadronPage() {
                 <div>
                   <p className="font-semibold text-green-800">Padrón cargado exitosamente</p>
                   <p className="text-sm text-green-700">
-                    Última actualización: {new Date(stats.ultimaCarga).toLocaleString("es-AR")}
+                    Última actualización: {new Date(ultimaCarga).toLocaleString("es-AR")}
                   </p>
                   <div className="text-sm text-green-700 mt-1">
                     <span className="font-medium">Estadísticas completas:</span>
                     <ul className="list-disc list-inside ml-4 mt-1">
-                      <li>{stats.totalRegistros.toLocaleString()} registros totales en el padrón</li>
-                      <li>{stats.totalMesas} mesas electorales configuradas</li>
+                      <li>{totalPadron.toLocaleString()} registros totales en el padrón</li>
+                      <li>{totalMesas} mesas electorales configuradas</li>
                       <li>
-                        {stats.totalVotantes.toLocaleString()} votantes ({stats.porcentajeParticipacion}% de
+                        {totalVotantes.toLocaleString()} votantes ({porcentajeParticipacion}% de
                         participación)
                       </li>
                     </ul>

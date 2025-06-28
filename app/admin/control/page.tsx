@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { getConfiguracion, updateConfiguracion } from "@/lib/supabase"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useElectionStats } from "@/hooks/use-election-stats"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,15 +33,11 @@ export default function ControlElectoralPage() {
   const [reiniciandoVotos, setReiniciandoVotos] = useState(false)
   const [vaciandoPadron, setVaciandoPadron] = useState(false)
 
-  // Estadísticas para mostrar en los diálogos
-  const [stats, setStats] = useState({
-    totalPadron: 0,
-    totalVotantes: 0,
-    totalResultados: 0,
-  })
-
   const router = useRouter()
   const { toast } = useToast()
+  
+  // Usar el hook centralizado para estadísticas
+  const { totalPadron, totalVotantes, totalVotos, loading: statsLoading, refresh: refreshStats } = useElectionStats()
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin")
@@ -61,20 +58,6 @@ export default function ControlElectoralPage() {
       setCargaResultadosHabilitada(cargaHabilitada === "true")
       setEleccionFinalizada(eleccionFinal === "true")
       setResultadosPublicos(resultadosPublicosConfig === "true")
-
-      // Cargar estadísticas básicas
-      const { count: totalPadronCount } = await supabase.from("padron").select("*", { count: "exact", head: true })
-
-      const { data: padronData } = await supabase.from("padron").select("voto_timestamp")
-      const totalVotantes = padronData?.filter((p) => p.voto_timestamp).length || 0
-
-      const { count: totalResultadosCount } = await supabase.from("votos").select("*", { count: "exact", head: true })
-
-      setStats({
-        totalPadron: totalPadronCount || 0,
-        totalVotantes,
-        totalResultados: totalResultadosCount || 0,
-      })
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
@@ -157,7 +140,7 @@ export default function ControlElectoralPage() {
       })
 
       // Recargar datos
-      loadData()
+      refreshStats()
     } catch (error) {
       console.error("Error vaciando resultados:", error)
       toast({
@@ -183,7 +166,7 @@ export default function ControlElectoralPage() {
       })
 
       // Recargar datos
-      loadData()
+      refreshStats()
     } catch (error) {
       console.error("Error reiniciando votos:", error)
       toast({
@@ -218,7 +201,7 @@ export default function ControlElectoralPage() {
       })
 
       // Recargar datos
-      loadData()
+      refreshStats()
     } catch (error) {
       console.error("Error vaciando padrón:", error)
       toast({
@@ -231,7 +214,7 @@ export default function ControlElectoralPage() {
     }
   }
 
-  if (loading) {
+  if (loading || statsLoading) {
     return <div className="container mx-auto px-4 py-8">Cargando...</div>
   }
 
@@ -255,19 +238,19 @@ export default function ControlElectoralPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{stats.totalPadron.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
               <p className="text-sm text-gray-600">Total Padrón</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-600">{stats.totalVotantes.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-green-600">{totalVotantes.toLocaleString()}</div>
               <p className="text-sm text-gray-600">Ya Votaron</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-purple-600">{stats.totalResultados.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-purple-600">{totalVotos.toLocaleString()}</div>
               <p className="text-sm text-gray-600">Resultados Cargados</p>
             </CardContent>
           </Card>
@@ -367,7 +350,7 @@ export default function ControlElectoralPage() {
                   Elimina todos los resultados cargados por los fiscales en todas las mesas
                 </p>
                 <p className="text-xs text-red-500 mt-1">
-                  📊 Actualmente hay {stats.totalResultados.toLocaleString()} resultados cargados
+                  📊 Actualmente hay {totalVotos.toLocaleString()} resultados cargados
                 </p>
               </div>
               <AlertDialog>
@@ -392,7 +375,7 @@ export default function ControlElectoralPage() {
                         <div className="bg-red-50 p-3 rounded-lg border border-red-200">
                           <p className="text-red-800 font-medium">⚠️ ADVERTENCIA:</p>
                           <ul className="text-red-700 text-sm mt-1 list-disc list-inside">
-                            <li>Se perderán {stats.totalResultados.toLocaleString()} resultados registrados</li>
+                            <li>Se perderán {totalVotos.toLocaleString()} resultados registrados</li>
                             <li>Los fiscales tendrán que volver a cargar los resultados</li>
                             <li>Esta operación NO se puede deshacer</li>
                           </ul>
@@ -417,7 +400,7 @@ export default function ControlElectoralPage() {
                 <h3 className="font-semibold text-orange-800">Reiniciar Estado de Votos</h3>
                 <p className="text-sm text-orange-600">Elimina el estado "Ya votó" de todos los registros del padrón</p>
                 <p className="text-xs text-orange-500 mt-1">
-                  👥 Actualmente {stats.totalVotantes.toLocaleString()} personas han votado
+                  👥 Actualmente {totalVotantes.toLocaleString()} personas han votado
                 </p>
               </div>
               <AlertDialog>
@@ -443,7 +426,7 @@ export default function ControlElectoralPage() {
                           <p className="text-orange-800 font-medium">⚠️ ADVERTENCIA:</p>
                           <ul className="text-orange-700 text-sm mt-1 list-disc list-inside">
                             <li>
-                              Todos los {stats.totalVotantes.toLocaleString()} votantes aparecerán como "No votaron"
+                              Todos los {totalVotantes.toLocaleString()} votantes aparecerán como "No votaron"
                             </li>
                             <li>Se perderá el registro de quién ya votó</li>
                             <li>Los fiscales tendrán que volver a marcar los votos</li>
@@ -472,7 +455,7 @@ export default function ControlElectoralPage() {
                   Elimina TODOS los registros del padrón electoral y sus etiquetas asociadas
                 </p>
                 <p className="text-xs text-red-600 mt-1">
-                  📋 Actualmente hay {stats.totalPadron.toLocaleString()} registros en el padrón
+                  📋 Actualmente hay {totalPadron.toLocaleString()} registros en el padrón
                 </p>
               </div>
               <AlertDialog>
@@ -503,7 +486,7 @@ export default function ControlElectoralPage() {
                           <ul className="text-red-800 text-sm mt-1 list-disc list-inside">
                             <li>
                               <strong>
-                                Se perderán TODOS los votantes ({stats.totalPadron.toLocaleString()} registros)
+                                Se perderán TODOS los votantes ({totalPadron.toLocaleString()} registros)
                               </strong>
                             </li>
                             <li>
