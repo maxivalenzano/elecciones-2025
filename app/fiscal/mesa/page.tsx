@@ -40,7 +40,6 @@ import {
 export default function FiscalMesaPage() {
   const [fiscal, setFiscal] = useState<Fiscal | null>(null)
   const [searchValue, setSearchValue] = useState("")
-  const [searchType, setSearchType] = useState<"dni" | "orden">("dni")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<PadronRecordWithEtiquetas | null>(null)
   const [votantes, setVotantes] = useState<PadronRecordWithEtiquetas[]>([])
@@ -79,6 +78,39 @@ export default function FiscalMesaPage() {
       setResultadosData(initialResults)
     } catch (error) {
       console.error("Error loading candidatos:", error)
+    }
+  }
+
+  // NUEVA FUNCIÓN: Cargar resultados existentes de la mesa
+  const loadResultadosExistentes = async (mesa: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("votos")
+        .select("candidato_id, cantidad_votos")
+        .eq("mesa", mesa)
+
+      if (error) throw error
+
+      // Crear objeto con los resultados existentes
+      const resultadosExistentes: { [key: number]: number } = {}
+      data?.forEach((voto) => {
+        resultadosExistentes[voto.candidato_id] = voto.cantidad_votos
+      })
+
+      // Combinar con los candidatos activos (mantener 0 para candidatos sin votos)
+      const resultadosCompletos: { [key: number]: number } = {}
+      candidatos.forEach((candidato) => {
+        resultadosCompletos[candidato.id] = resultadosExistentes[candidato.id] || 0
+      })
+
+      setResultadosData(resultadosCompletos)
+    } catch (error) {
+      console.error("Error loading resultados existentes:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los resultados existentes",
+        variant: "destructive",
+      })
     }
   }
 
@@ -180,11 +212,7 @@ export default function FiscalMesaPage() {
         `)
         .eq("mesa", fiscal.mesa_asignada)
 
-      if (searchType === "dni") {
-        query = query.eq("dni", searchValue.trim())
-      } else {
-        query = query.eq("orden", Number.parseInt(searchValue.trim()))
-      }
+      query = query.eq("dni", searchValue.trim())
 
       const { data, error } = await query.single()
 
@@ -453,7 +481,16 @@ export default function FiscalMesaPage() {
                     Cargar los resultados finales de la mesa {fiscal.mesa_asignada}
                   </p>
                 </div>
-                <Dialog open={resultadosDialog} onOpenChange={setResultadosDialog}>
+                <Dialog 
+                  open={resultadosDialog} 
+                  onOpenChange={(open) => {
+                    setResultadosDialog(open)
+                    // Cargar resultados existentes cuando se abre el diálogo
+                    if (open && fiscal) {
+                      loadResultadosExistentes(fiscal.mesa_asignada)
+                    }
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button>
                       <BarChart3 className="h-4 w-4 mr-2" />
@@ -526,19 +563,9 @@ export default function FiscalMesaPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-              {/* 
-            <div className="flex gap-4">
-              <Button variant={searchType === "dni" ? "default" : "outline"} onClick={() => setSearchType("dni")}>
-                Por DNI
-              </Button>
-                <Button variant={searchType === "orden" ? "default" : "outline"} onClick={() => setSearchType("orden")}>
-                  Por Orden
-                </Button>
-            </div>
-              */}
             <div className="flex gap-2">
               <Input
-                placeholder={searchType === "dni" ? "DNI" : "Número de orden"}
+                placeholder="DNI"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleSearch()}
@@ -633,9 +660,9 @@ export default function FiscalMesaPage() {
                     </p>
                     <p className="text-xs text-gray-600">DNI: {votante.dni}</p>
 
-                    {votante.etiquetas?.length > 0 && (
+                    {votante?.etiquetas && votante?.etiquetas?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {votante.etiquetas.map((etiqueta) => (
+                        {votante?.etiquetas?.map((etiqueta) => (
                           <Badge
                             key={etiqueta.id}
                             variant="outline"
