@@ -11,4 +11,4 @@ AS $$
 $$;
 
 -- Comentario sobre la función
-COMMENT ON FUNCTION get_total_votos() IS 'Obtiene el total de votos emitidos sumando cantidad_votos de todos los registros'; 
+COMMENT ON FUNCTION get_total_votos() IS 'Obtiene el total de votos emitidos sumando cantidad_votos de todos los registros';

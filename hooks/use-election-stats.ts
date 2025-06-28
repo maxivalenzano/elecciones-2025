@@ -152,4 +152,4 @@ export function useElectionStats() {
     ...stats,
     refresh: loadStats,
   }
-} 
+}
