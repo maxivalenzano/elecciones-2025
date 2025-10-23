@@ -25,25 +25,32 @@ CREATE INDEX idx_padron_mesa ON padron(mesa);
 CREATE INDEX idx_padron_mesa_distinct ON padron(mesa);
 CREATE INDEX idx_votos_mesa ON votos(mesa);
 
--- 5. Reemplazar la función get_mesas_unicas() para trabajar con texto
+-- 5. Reemplaza la función get_mesas_unicas por la versión que usa sub-SELECT para el array
 DROP FUNCTION IF EXISTS get_mesas_unicas();
 
 CREATE OR REPLACE FUNCTION get_mesas_unicas()
 RETURNS TABLE(mesas text[], total integer) AS $$
 BEGIN
   RETURN QUERY
-  WITH mesas_ordenadas AS (
-    SELECT DISTINCT mesa
-      FROM padron
-    ORDER BY mesa
-  )
-  SELECT
-    ARRAY(SELECT mesa FROM mesas_ordenadas) AS mesas,
-    (SELECT COUNT(DISTINCT mesa) FROM padron)::integer AS total;
+    SELECT
+      COALESCE(
+        (
+          SELECT array_agg(m ORDER BY m)
+          FROM (
+            SELECT DISTINCT mesa::text AS m
+            FROM padron
+          ) AS sub
+        ),
+        ARRAY[]::text[]
+      ) AS mesas,
+      (
+        SELECT COUNT(DISTINCT mesa)
+        FROM padron
+      )::integer AS total;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION get_mesas_unicas() IS
-  'Obtiene todas las mesas únicas del padrón de manera eficiente, retornando un array de mesas (texto) y el total';
+  'Obtiene todas las mesas únicas del padrón como text[] y el total de mesas';
 
 COMMIT;
