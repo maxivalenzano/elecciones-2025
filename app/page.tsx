@@ -1,11 +1,26 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Search, LogIn } from "lucide-react"
-import { Users, Shield, BarChart3 } from "lucide-react"
 import { ResultadosPublicos } from "@/components/resultados-publicos"
+import { isModoSimplificado } from "@/lib/supabase"
 
 export default function HomePage() {
+  const [modoSimplificado, setModoSimplificado] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const checkMode = async () => {
+      const isSimple = await isModoSimplificado()
+      setModoSimplificado(isSimple)
+      setLoading(false)
+    }
+    checkMode()
+  }, [])
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="text-center mb-8">
@@ -20,20 +35,23 @@ export default function HomePage() {
       {/* Resultados Públicos */}
       <ResultadosPublicos />
 
-      <div className="max-w-md mx-auto mt-8">
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="text-center">
-            <Search className="h-12 w-12 mx-auto text-blue-600 mb-2" />
-            <CardTitle>Buscar Mesa</CardTitle>
-            <CardDescription>Encuentra tu mesa y orden de votación</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full">
-              <Link href="/buscar">Buscar por DNI</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Buscar Mesa - Solo en modo completo */}
+      {!loading && !modoSimplificado && (
+        <div className="max-w-md mx-auto mt-8">
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="text-center">
+              <Search className="h-12 w-12 mx-auto text-blue-600 mb-2" />
+              <CardTitle>Buscar Mesa</CardTitle>
+              <CardDescription>Encuentra tu mesa y orden de votación</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full">
+                <Link href="/buscar">Buscar por DNI</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Botón de Inicio de Sesión */}
       <div className="max-w-md mx-auto mt-8">

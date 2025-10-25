@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { BarChart3, Users, Vote } from "lucide-react"
-import { supabase, type Candidato, getConfiguracion } from "@/lib/supabase"
+import { BarChart3, Users, Vote, FileText } from "lucide-react"
+import { supabase, type Candidato, getConfiguracion, isModoSimplificado } from "@/lib/supabase"
 import { useElectionStats } from "@/hooks/use-election-stats"
 
 // Interfaces actualizadas para usar mesa como string
@@ -33,13 +33,20 @@ export function ResultadosPublicos() {
   const [loading, setLoading] = useState(true)
   const [resultados, setResultados] = useState<ResultadoCandidato[]>([])
   const [resultadosPorMesa, setResultadosPorMesa] = useState<ResultadoMesa[]>([])
+  const [modoSimplificado, setModoSimplificado] = useState(false)
   
   // Usar el hook centralizado para estadísticas
-  const { totalPadron, totalVotantes, porcentajeParticipacion, totalVotos, loading: statsLoading } = useElectionStats()
+  const { totalPadron, totalVotantes, porcentajeParticipacion, totalVotos, totalMesas, loading: statsLoading } = useElectionStats()
 
   useEffect(() => {
     checkResultadosPublicos()
+    checkModoSimplificado()
   }, [])
+
+  const checkModoSimplificado = async () => {
+    const isSimple = await isModoSimplificado()
+    setModoSimplificado(isSimple)
+  }
 
   const checkResultadosPublicos = async () => {
     try {
@@ -184,44 +191,74 @@ export function ResultadosPublicos() {
 
   return (
     <div className="max-w-6xl mx-auto mb-8 space-y-6">
-      {/* Estadísticas generales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
-                <p className="text-sm text-gray-600">Total Padrón</p>
+      {/* Estadísticas generales - Ajustadas según modo */}
+      {modoSimplificado ? (
+        // Modo Simplificado: Solo votos y mesas
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
+                  <p className="text-sm text-gray-600">Votos Emitidos</p>
+                </div>
+                <Vote className="h-8 w-8 text-green-600" />
               </div>
-              <Users className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
-                <p className="text-sm text-gray-600">Votos Emitidos</p>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">{totalMesas}</div>
+                  <p className="text-sm text-gray-600">Total Mesas</p>
+                </div>
+                <FileText className="h-8 w-8 text-blue-600" />
               </div>
-              <Vote className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        // Modo Completo: Todas las estadísticas
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
+                  <p className="text-sm text-gray-600">Total Padrón</p>
+                </div>
+                <Users className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
-                <p className="text-sm text-gray-600">Participación</p>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
+                  <p className="text-sm text-gray-600">Votos Emitidos</p>
+                </div>
+                <Vote className="h-8 w-8 text-green-600" />
               </div>
-              <BarChart3 className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                  <p className="text-sm text-gray-600">Participación</p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-purple-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Resultados generales */}
       <Card>

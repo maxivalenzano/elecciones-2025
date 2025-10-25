@@ -27,6 +27,7 @@ export default function ControlElectoralPage() {
   const [cargaResultadosHabilitada, setCargaResultadosHabilitada] = useState(false)
   const [eleccionFinalizada, setEleccionFinalizada] = useState(false)
   const [resultadosPublicos, setResultadosPublicos] = useState(false)
+  const [modoSimplificado, setModoSimplificado] = useState(false)
 
   // Estados para las operaciones de limpieza
   const [vaciandoResultados, setVaciandoResultados] = useState(false)
@@ -54,10 +55,12 @@ export default function ControlElectoralPage() {
       const cargaHabilitada = await getConfiguracion("carga_resultados_habilitada")
       const eleccionFinal = await getConfiguracion("eleccion_finalizada")
       const resultadosPublicosConfig = await getConfiguracion("resultados_publicos")
+      const modoSimple = await getConfiguracion("modo_simplificado")
 
       setCargaResultadosHabilitada(cargaHabilitada === "true")
       setEleccionFinalizada(eleccionFinal === "true")
       setResultadosPublicos(resultadosPublicosConfig === "true")
+      setModoSimplificado(modoSimple === "true")
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
@@ -122,6 +125,27 @@ export default function ControlElectoralPage() {
       toast({
         title: "Error",
         description: "No se pudo actualizar la configuración",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const toggleModoSimplificado = async () => {
+    const nuevoValor = !modoSimplificado
+    const success = await updateConfiguracion("modo_simplificado", nuevoValor.toString())
+
+    if (success) {
+      setModoSimplificado(nuevoValor)
+      toast({
+        title: "¡Modo actualizado!",
+        description: nuevoValor 
+          ? "Modo Simplificado: Solo carga de resultados por mesa" 
+          : "Modo Completo: Con padrón y marcación individual",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el modo",
         variant: "destructive",
       })
     }
@@ -327,6 +351,32 @@ export default function ControlElectoralPage() {
                     Publicar
                   </>
                 )}
+              </Button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4 bg-blue-50 border-blue-200">
+              <div>
+                <h3 className="font-semibold text-blue-900">Modo de Operación</h3>
+                <p className="text-sm text-blue-700">
+                  {modoSimplificado
+                    ? "Modo Simplificado: Solo carga de resultados por mesa (sin padrón completo)"
+                    : "Modo Completo: Con padrón electoral, marcación individual y etiquetas"}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Estado actual: {modoSimplificado ? "⚡ Simplificado" : "📋 Completo"}
+                </p>
+                {modoSimplificado && (
+                  <div className="mt-2 text-xs text-blue-800 bg-blue-100 p-2 rounded">
+                    ℹ️ En modo simplificado se ocultan: búsqueda por DNI, marcación de votantes y gestión de etiquetas
+                  </div>
+                )}
+              </div>
+              <Button
+                onClick={toggleModoSimplificado}
+                variant={modoSimplificado ? "default" : "outline"}
+                className="w-full sm:w-auto"
+              >
+                {modoSimplificado ? "Cambiar a Completo" : "Cambiar a Simplificado"}
               </Button>
             </div>
           </CardContent>

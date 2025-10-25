@@ -12,6 +12,7 @@ import {
   supabase,
   type Fiscal,
   getConfiguracion,
+  isModoSimplificado,
   type Candidato,
   type Etiqueta,
   type PadronRecordWithEtiquetas,
@@ -50,6 +51,7 @@ export default function FiscalMesaPage() {
   const [resultadosDialog, setResultadosDialog] = useState(false)
   const [resultadosData, setResultadosData] = useState<{ [key: number]: number }>({})
   const [cargandoResultados, setCargandoResultados] = useState(false)
+  const [modoSimplificado, setModoSimplificado] = useState(false)
 
   // Estados para etiquetas
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([])
@@ -173,6 +175,11 @@ export default function FiscalMesaPage() {
     setCargaResultadosHabilitada(habilitada === "true")
   }
 
+  const checkModoSimplificado = async () => {
+    const isSimple = await isModoSimplificado()
+    setModoSimplificado(isSimple)
+  }
+
   useEffect(() => {
     const fiscalData = localStorage.getItem("fiscal")
     if (!fiscalData) {
@@ -182,10 +189,17 @@ export default function FiscalMesaPage() {
 
     const parsedFiscal = JSON.parse(fiscalData)
     setFiscal(parsedFiscal)
-    loadVotantesMesa(parsedFiscal.mesa_asignada)
+    checkModoSimplificado()
     loadCandidatos()
     loadEtiquetas()
     checkCargaResultados()
+    
+    // Solo cargar votantes si NO está en modo simplificado
+    isModoSimplificado().then(isSimple => {
+      if (!isSimple) {
+        loadVotantesMesa(parsedFiscal.mesa_asignada)
+      }
+    })
   }, [router])
 
   const handleSearch = async () => {
@@ -448,27 +462,46 @@ export default function FiscalMesaPage() {
           </Button>
         </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card>
+        {/* Estadísticas - Solo en modo completo */}
+        {!modoSimplificado && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-blue-600">{votantes.length}</div>
+                <p className="text-sm text-gray-600">Total Padrón</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-green-600">{votantesQueVotaron.length}</div>
+                <p className="text-sm text-gray-600">Ya Votaron</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                <p className="text-sm text-gray-600">Participación</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Mensaje en modo simplificado */}
+        {modoSimplificado && (
+          <Card className="mb-6 border-blue-200 bg-blue-50">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{votantes.length}</div>
-              <p className="text-sm text-gray-600">Total Padrón</p>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-blue-600" />
+                <div>
+                  <p className="font-semibold text-blue-800">Modo Simplificado Activo</p>
+                  <p className="text-sm text-blue-700">
+                    Solo puede cargar los resultados finales de la mesa. La marcación individual de votantes está deshabilitada.
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-600">{votantesQueVotaron.length}</div>
-              <p className="text-sm text-gray-600">Ya Votaron</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
-              <p className="text-sm text-gray-600">Participación</p>
-            </CardContent>
-          </Card>
-        </div>
+        )}
 
         {/* Botón de carga de resultados */}
         {cargaResultadosHabilitada && (
@@ -554,31 +587,33 @@ export default function FiscalMesaPage() {
           </Card>
         )}
 
-        {/* Búsqueda */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Search className="h-5 w-5 mr-2" />
-              Buscar Votante
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="DNI"
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <Button onClick={handleSearch} disabled={loading}>
-                {loading ? "Buscando..." : "Buscar"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Búsqueda - Solo en modo completo */}
+        {!modoSimplificado && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Search className="h-5 w-5 mr-2" />
+                Buscar Votante
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="DNI"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <Button onClick={handleSearch} disabled={loading}>
+                  {loading ? "Buscando..." : "Buscar"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Resultado de búsqueda */}
-        {result && (
+        {/* Resultado de búsqueda - Solo en modo completo */}
+        {!modoSimplificado && result && (
           <Card className="mb-6">
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
@@ -637,14 +672,15 @@ export default function FiscalMesaPage() {
           </Card>
         )}
 
-        {/* Lista de votantes */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg">Lista de Votantes - Mesa {fiscal.mesa_asignada}</CardTitle>
-            <CardDescription className="text-sm">
-              {votantesQueVotaron.length} de {votantes.length} votantes han participado
-            </CardDescription>
-          </CardHeader>
+        {/* Lista de votantes - Solo en modo completo */}
+        {!modoSimplificado && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base sm:text-lg">Lista de Votantes - Mesa {fiscal.mesa_asignada}</CardTitle>
+              <CardDescription className="text-sm">
+                {votantesQueVotaron.length} de {votantes.length} votantes han participado
+              </CardDescription>
+            </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {votantes.map((votante) => (
@@ -710,6 +746,7 @@ export default function FiscalMesaPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* NUEVO: Dialog para deshacer voto */}
         <AlertDialog open={deshacerVotoDialog} onOpenChange={setDeshacerVotoDialog}>

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Search, ArrowLeft, MapPin, Hash } from "lucide-react"
+import { Search, ArrowLeft, MapPin, Hash, Info } from "lucide-react"
 import Link from "next/link"
-import { supabase, type PadronRecord } from "@/lib/supabase"
+import { supabase, type PadronRecord, isModoSimplificado } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 export default function BuscarPage() {
@@ -15,7 +15,18 @@ export default function BuscarPage() {
   const [searchValue, setSearchValue] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<PadronRecord | null>(null)
+  const [modoSimplificado, setModoSimplificado] = useState(false)
+  const [checkingMode, setCheckingMode] = useState(true)
   const { toast } = useToast()
+
+  useEffect(() => {
+    const checkMode = async () => {
+      const isSimple = await isModoSimplificado()
+      setModoSimplificado(isSimple)
+      setCheckingMode(false)
+    }
+    checkMode()
+  }, [])
 
   const handleSearch = async () => {
     if (!searchValue.trim()) {
@@ -63,6 +74,51 @@ export default function BuscarPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (checkingMode) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <p>Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (modoSimplificado) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-6">
+            <Button variant="ghost" asChild className="mb-4">
+              <Link href="/">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver al inicio
+              </Link>
+            </Button>
+          </div>
+
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader className="text-center">
+              <Info className="h-12 w-12 mx-auto text-blue-600 mb-4" />
+              <CardTitle className="text-blue-900">Función no disponible</CardTitle>
+              <CardDescription className="text-blue-700">
+                La búsqueda por DNI no está disponible en el modo simplificado
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-sm text-blue-800 mb-4">
+                El sistema está operando en modo simplificado, que solo permite la carga de resultados por mesa.
+              </p>
+              <p className="text-sm text-blue-700">
+                Para conocer tu mesa electoral, consulta con las autoridades de mesa.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -21,10 +21,7 @@ CREATE TABLE IF NOT EXISTS padron_etiquetas (
 
 -- Insertar etiquetas de ejemplo
 INSERT INTO etiquetas (nombre, color, descripcion) VALUES
-('Adulto Mayor', '#F59E0B', 'Votante de tercera edad'),
 ('Discapacidad', '#8B5CF6', 'Votante con discapacidad'),
-('Embarazada', '#EC4899', 'Votante embarazada'),
-('Prioridad', '#EF4444', 'Votante con prioridad especial'),
 ('Observación', '#6B7280', 'Votante con observación general')
 ON CONFLICT (nombre) DO NOTHING;
 

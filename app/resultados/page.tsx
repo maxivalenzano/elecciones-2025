@@ -21,9 +21,10 @@ import {
   ChevronsLeft,
   ChevronsRight,
   LogOut,
+  FileText,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { supabase, type Candidato, type PadronRecord, type Etiqueta } from "@/lib/supabase"
+import { supabase, type Candidato, type PadronRecord, type Etiqueta, isModoSimplificado } from "@/lib/supabase"
 import { useElectionStats } from "@/hooks/use-election-stats"
 
 interface ResultadoCandidato extends Candidato {
@@ -73,6 +74,7 @@ export default function ResultadosPage() {
   const [loading, setLoading] = useState(true)
   const [loadingPadron, setLoadingPadron] = useState(false)
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([])
+  const [modoSimplificado, setModoSimplificado] = useState(false)
   const router = useRouter()
 
   // Usar el hook centralizado para estadísticas
@@ -104,6 +106,9 @@ export default function ResultadosPage() {
       router.push("/login")
       return
     }
+
+    // Cargar modo simplificado
+    isModoSimplificado().then(setModoSimplificado)
 
     loadInitialData()
   }, [router])
@@ -535,54 +540,86 @@ export default function ResultadosPage() {
           </Button>
         </div>
 
-        {/* Estadísticas generales */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCardClick("padron")}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
-                  <p className="text-sm text-gray-600">Total Padrón</p>
-                  <p className="text-xs text-gray-500 mt-1">Click para ver detalle</p>
+        {/* Estadísticas generales - Ajustadas según modo */}
+        {modoSimplificado ? (
+          // Modo Simplificado: Solo votos y mesas
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCardClick("votos")}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
+                    <p className="text-sm text-gray-600">Votos Emitidos</p>
+                    <p className="text-xs text-gray-500 mt-1">Click para ver resultados</p>
+                  </div>
+                  <Vote className="h-8 w-8 text-green-600" />
                 </div>
-                <Users className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCardClick("votos")}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
-                  <p className="text-sm text-gray-600">Votos Emitidos</p>
-                  <p className="text-xs text-gray-500 mt-1">Click para ver resultados</p>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{mesas.length}</div>
+                    <p className="text-sm text-gray-600">Total Mesas</p>
+                    <p className="text-xs text-gray-500 mt-1">Mesas electorales</p>
+                  </div>
+                  <BarChart3 className="h-8 w-8 text-blue-600" />
                 </div>
-                <Vote className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          // Modo Completo: Todas las estadísticas
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCardClick("padron")}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{totalPadron.toLocaleString()}</div>
+                    <p className="text-sm text-gray-600">Total Padrón</p>
+                    <p className="text-xs text-gray-500 mt-1">Click para ver detalle</p>
+                  </div>
+                  <Users className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
-                  <p className="text-sm text-gray-600">Participación</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {totalVotantes.toLocaleString()} de {totalPadron.toLocaleString()}
-                  </p>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCardClick("votos")}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{totalVotos.toLocaleString()}</div>
+                    <p className="text-sm text-gray-600">Votos Emitidos</p>
+                    <p className="text-xs text-gray-500 mt-1">Click para ver resultados</p>
+                  </div>
+                  <Vote className="h-8 w-8 text-green-600" />
                 </div>
-                <BarChart3 className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                    <p className="text-sm text-gray-600">Participación</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {totalVotantes.toLocaleString()} de {totalPadron.toLocaleString()}
+                    </p>
+                  </div>
+                  <BarChart3 className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList
-            className="flex flex-col sm:grid sm:grid-cols-3 w-full gap-1 sm:gap-2 bg-gray-100 rounded-lg p-1 py-4 sm:py-0"
+            className={`flex flex-col sm:grid ${modoSimplificado ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} w-full gap-1 sm:gap-2 bg-gray-100 rounded-lg p-1 py-4 sm:py-0`}
           >
             <TabsTrigger
               value="candidatos"
@@ -596,12 +633,14 @@ export default function ResultadosPage() {
             >
               Resultados por Mesa
             </TabsTrigger>
-            <TabsTrigger
-              value="padron"
-              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm"
-            >
-              Padrón Electoral
-            </TabsTrigger>
+            {!modoSimplificado && (
+              <TabsTrigger
+                value="padron"
+                className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                Padrón Electoral
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Resultados Generales */}
@@ -695,8 +734,9 @@ export default function ResultadosPage() {
             </Card>
           </TabsContent>
 
-          {/* Padrón Electoral */}
-          <TabsContent value="padron" className="space-y-4">
+          {/* Padrón Electoral - Solo en modo completo */}
+          {!modoSimplificado && (
+            <TabsContent value="padron" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Padrón Electoral</CardTitle>
@@ -939,6 +979,7 @@ export default function ResultadosPage() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
 
         {totalVotos > 0 && (

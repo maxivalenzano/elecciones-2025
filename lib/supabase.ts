@@ -98,3 +98,9 @@ export const updateConfiguracion = async (clave: string, valor: string): Promise
 
   return !error
 }
+
+// Función helper para verificar modo simplificado
+export const isModoSimplificado = async (): Promise<boolean> => {
+  const modo = await getConfiguracion("modo_simplificado")
+  return modo === "true"
+}
