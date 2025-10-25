@@ -5,11 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Eye, EyeOff, Trash2, RotateCcw, AlertTriangle } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { getConfiguracion, updateConfiguracion } from "@/lib/supabase"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useElectionStats } from "@/hooks/use-election-stats"
+import { useAuth } from "@/hooks/use-auth"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,20 +34,15 @@ export default function ControlElectoralPage() {
   const [reiniciandoVotos, setReiniciandoVotos] = useState(false)
   const [vaciandoPadron, setVaciandoPadron] = useState(false)
 
-  const router = useRouter()
   const { toast } = useToast()
+  useAuth({ requiredRole: "admin", redirectTo: "/admin" })
   
   // Usar el hook centralizado para estadísticas
   const { totalPadron, totalVotantes, totalVotos, loading: statsLoading, refresh: refreshStats } = useElectionStats()
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem("admin")
-    if (!isAdmin) {
-      router.push("/admin")
-      return
-    }
     loadData()
-  }, [router])
+  }, [])
 
   const loadData = async () => {
     try {

@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Users, Vote, BarChart3, Upload, UserPlus, Settings, LogOut, FileText, Tag } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { supabase, type Candidato, type Fiscal } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useElectionStats } from "@/hooks/use-election-stats"
+import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
 import { AdminMobileNav } from "@/components/admin-mobile-nav"
 
@@ -18,19 +18,13 @@ export default function AdminDashboard() {
   const [fiscales, setFiscales] = useState<Fiscal[]>([])
   const [loading, setLoading] = useState(true)
 
-  const router = useRouter()
   const { toast } = useToast()
+  const { logout } = useAuth({ requiredRole: "admin", redirectTo: "/admin" })
   const { totalPadron, totalVotantes, porcentajeParticipacion, totalMesas, loading: statsLoading, error: statsError, refresh: refreshStats } = useElectionStats()
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem("admin")
-    if (!isAdmin) {
-      router.push("/admin")
-      return
-    }
-
     loadDashboardData()
-  }, [router])
+  }, [])
 
   const loadDashboardData = async () => {
     try {
@@ -65,10 +59,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem("admin")
-    router.push("/")
-  }
+  // logout function now comes from useAuth hook
 
   if (loading || statsLoading) {
     return <div className="container mx-auto px-4 py-8">Cargando...</div>
@@ -93,7 +84,7 @@ export default function AdminDashboard() {
             <h1 className="text-3xl font-bold">Panel de Administración</h1>
             <p className="text-gray-600">Elecciones Siete Palmas 2025</p>
           </div>
-          <Button variant="outline" onClick={logout}>
+          <Button variant="outline" onClick={() => logout("admin")}>
             <LogOut className="h-4 w-4 mr-2" />
             Cerrar Sesión
           </Button>

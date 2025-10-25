@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Search, Check, X, BarChart3, Tag, AlertTriangle, RefreshCw } from "lucide-react"
-import { useRouter } from "next/navigation"
 import {
   supabase,
   type Fiscal,
@@ -18,6 +17,7 @@ import {
   type PadronRecordWithEtiquetas,
 } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 import { ResultadoMesa } from "@/components/resultado-mesa"
 import {
   Dialog,
@@ -45,8 +45,8 @@ export default function FiscalMesaPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<PadronRecordWithEtiquetas | null>(null)
   const [votantes, setVotantes] = useState<PadronRecordWithEtiquetas[]>([])
-  const router = useRouter()
   const { toast } = useToast()
+  const { getFiscalData, logout } = useAuth({ requiredRole: "fiscal", redirectTo: "/fiscal" })
   const [candidatos, setCandidatos] = useState<Candidato[]>([])
   const [cargaResultadosHabilitada, setCargaResultadosHabilitada] = useState(false)
   const [resultadosDialog, setResultadosDialog] = useState(false)
@@ -247,27 +247,25 @@ export default function FiscalMesaPage() {
   }
 
   useEffect(() => {
-    const fiscalData = localStorage.getItem("fiscal")
+    const fiscalData = getFiscalData()
     if (!fiscalData) {
-      router.push("/fiscal")
       return
     }
 
-    const parsedFiscal = JSON.parse(fiscalData)
-    setFiscal(parsedFiscal)
+    setFiscal(fiscalData)
     checkModoSimplificado()
     loadCandidatos()
     loadEtiquetas()
     checkCargaResultados()
-    loadResultadosMesa(parsedFiscal.mesa_asignada)
+    loadResultadosMesa(fiscalData.mesa_asignada)
     
     // Solo cargar votantes si NO está en modo simplificado
     isModoSimplificado().then(isSimple => {
       if (!isSimple) {
-        loadVotantesMesa(parsedFiscal.mesa_asignada)
+        loadVotantesMesa(fiscalData.mesa_asignada)
       }
     })
-  }, [router])
+  }, [])
 
   const handleSearch = async () => {
     if (!searchValue.trim() || !fiscal) return
@@ -455,10 +453,7 @@ export default function FiscalMesaPage() {
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem("fiscal")
-    router.push("/")
-  }
+  // logout function comes from useAuth hook
 
   if (!fiscal) {
     return <div>Cargando...</div>
@@ -527,7 +522,7 @@ export default function FiscalMesaPage() {
             <h1 className="text-3xl font-bold">Mesa {fiscal.mesa_asignada}</h1>
             <p className="text-gray-600">Fiscal: {fiscal.nombre}</p>
           </div>
-          <Button variant="outline" onClick={logout}>
+          <Button variant="outline" onClick={() => logout("fiscal")}>
             Cerrar Sesión
           </Button>
         </div>

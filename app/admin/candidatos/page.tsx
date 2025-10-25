@@ -30,9 +30,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Plus, Edit, Trash2, ArrowLeft, Palette } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { supabase, type Candidato } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 const COLORES_DISPONIBLES = [
   "#3B82F6", // Azul
@@ -57,17 +57,12 @@ export default function CandidatosPage() {
     partido: "",
     color: "#3B82F6",
   })
-  const router = useRouter()
   const { toast } = useToast()
+  useAuth({ requiredRole: "admin", redirectTo: "/admin" })
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem("admin")
-    if (!isAdmin) {
-      router.push("/admin")
-      return
-    }
     loadCandidatos()
-  }, [router])
+  }, [])
 
   const loadCandidatos = async () => {
     try {

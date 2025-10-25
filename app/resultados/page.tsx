@@ -22,9 +22,10 @@ import {
   LogOut,
   FileText,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { supabase, type Candidato, type PadronRecord, type Etiqueta, isModoSimplificado } from "@/lib/supabase"
+import { supabase, type Candidato, type PadronRecord, type Etiqueta, isModoSimplificado, getMesasUnicas } from "@/lib/supabase"
 import { useElectionStats } from "@/hooks/use-election-stats"
+import { useResultadosMesa } from "@/hooks/use-resultados-mesa"
+import { useAuth } from "@/hooks/use-auth"
 import { ResultadoMesa } from "@/components/resultado-mesa"
 import { ResultadosGenerales } from "@/components/resultados-generales"
 
@@ -67,19 +68,18 @@ interface PadronRecordWithEtiquetas extends PadronRecord {
 
 export default function ResultadosPage() {
   const [activeTab, setActiveTab] = useState("candidatos")
-  const [resultados, setResultados] = useState<ResultadoCandidato[]>([])
-  const [resultadosPorMesa, setResultadosPorMesa] = useState<ResultadoMesa[]>([])
   const [padronPaginado, setPadronPaginado] = useState<PadronRecordWithEtiquetas[]>([])
   const [mesas, setMesas] = useState<string[]>([])
   const [loadingMesas, setLoadingMesas] = useState(true)
-  const [loading, setLoading] = useState(true)
   const [loadingPadron, setLoadingPadron] = useState(false)
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([])
   const [modoSimplificado, setModoSimplificado] = useState(false)
-  const router = useRouter()
+  
+  const { logout } = useAuth({ requiredRole: ["resultados", "admin"], redirectTo: "/login" })
 
-  // Usar el hook centralizado para estadísticas
-  const { totalPadron, totalVotantes, porcentajeParticipacion, totalVotos, loading: statsLoading } = useElectionStats()
+  // Usar los hooks centralizados
+  const { totalPadron, totalVotantes, porcentajeParticipacion, loading: statsLoading } = useElectionStats()
+  const { resultadosGenerales, resultadosPorMesa, totalVotos, loading: resultadosLoading } = useResultadosMesa()
 
   // Paginación y filtros para el padrón
   const [pagination, setPagination] = useState<PaginationInfo>({
@@ -101,18 +101,11 @@ export default function ResultadosPage() {
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    // Verificar acceso
-    const hasAccess = localStorage.getItem("resultados") || localStorage.getItem("admin")
-    if (!hasAccess) {
-      router.push("/login")
-      return
-    }
-
     // Cargar modo simplificado
     isModoSimplificado().then(setModoSimplificado)
 
     loadInitialData()
-  }, [router])
+  }, [])
 
   useEffect(() => {
     if (activeTab === "padron") {
@@ -132,62 +125,16 @@ export default function ResultadosPage() {
     }
   }, [filtros, activeTab])
 
-  const logout = () => {
-    localStorage.removeItem("resultados")
-    localStorage.removeItem("admin")
-    router.push("/")
-  }
+  // logout function comes from useAuth hook
 
   const loadAllMesas = async () => {
     setLoadingMesas(true)
     try {
-      let mesasUnicas: string[] = []
-
-      try {
-        const { data: mesasData, error: mesasError } = await supabase.rpc("get_mesas_unicas").single()
-
-        if (mesasError) {
-          console.log("Función get_mesas_unicas no encontrada, usando método alternativo...")
-
-          let allMesas: string[] = []
-          let hasMore = true
-          let offset = 0
-          const batchSize = 1000
-
-          while (hasMore) {
-            const { data: batchData, error: batchError } = await supabase
-              .from("padron")
-              .select("mesa")
-              .range(offset, offset + batchSize - 1)
-              .order("mesa", { ascending: true })
-
-            if (batchError) throw batchError
-
-            if (batchData && batchData.length > 0) {
-              const batchMesas = batchData.map((p) => p.mesa)
-              allMesas = [...allMesas, ...batchMesas]
-
-              if (batchData.length < batchSize) {
-                hasMore = false
-              } else {
-                offset += batchSize
-              }
-            } else {
-              hasMore = false
-            }
-          }
-
-          mesasUnicas = Array.from(new Set(allMesas)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        } else {
-          mesasUnicas = (mesasData as { mesas: string[] })?.mesas || []
-        }
-      } catch (error) {
+      const { mesas: mesasData, error } = await getMesasUnicas()
+      if (error) {
         console.error("Error obteniendo mesas:", error)
-        const { data: fallbackData } = await supabase.from("padron").select("mesa").order("mesa", { ascending: true })
-        mesasUnicas = Array.from(new Set(fallbackData?.map((p) => p.mesa) || [])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
       }
-
-      setMesas(mesasUnicas)
+      setMesas(mesasData)
     } catch (error) {
       console.error("Error loading all mesas:", error)
     } finally {
@@ -202,115 +149,7 @@ export default function ResultadosPage() {
       const { data: etiquetasData } = await supabase.from("etiquetas").select("*").eq("activa", true).order("nombre")
       setEtiquetas(etiquetasData || [])
 
-      // Cargar resultados por candidato y mesa
-      const { data: votosData } = await supabase.from("votos").select(`
-        mesa,
-        candidato_id,
-        cantidad_votos,
-        candidatos (
-          id,
-          nombre,
-          partido,
-          color
-        )
-      `)
-
-      // Procesar resultados generales
-      const resultadosMap = new Map<number, ResultadoCandidato>()
-      const mesasMap = new Map<string, ResultadoMesa>()
-      let totalVotosCalculado = 0
-
-      votosData?.forEach((voto: any) => {
-        const candidatoId = voto.candidato_id
-        const mesa = voto.mesa
-        const votos = voto.cantidad_votos
-        totalVotosCalculado += votos
-
-        // Resultados generales por candidato
-        if (resultadosMap.has(candidatoId)) {
-          const existing = resultadosMap.get(candidatoId)!
-          existing.total_votos += votos
-          existing.votos_por_mesa[mesa] = { votos, porcentaje: 0 }
-        } else {
-          resultadosMap.set(candidatoId, {
-            ...voto.candidatos,
-            total_votos: votos,
-            porcentaje: 0,
-            votos_por_mesa: { [mesa]: { votos, porcentaje: 0 } },
-          })
-        }
-
-        // Resultados por mesa
-        if (mesasMap.has(mesa)) {
-          const existingMesa = mesasMap.get(mesa)!
-          existingMesa.total_votos += votos
-          existingMesa.candidatos.push({
-            id: voto.candidatos.id,
-            nombre: voto.candidatos.nombre,
-            partido: voto.candidatos.partido,
-            color: voto.candidatos.color,
-            votos,
-            porcentaje: 0,
-          })
-        } else {
-          mesasMap.set(mesa, {
-            mesa,
-            total_votos: votos,
-            candidatos: [
-              {
-                id: voto.candidatos.id,
-                nombre: voto.candidatos.nombre,
-                partido: voto.candidatos.partido,
-                color: voto.candidatos.color,
-                votos,
-                porcentaje: 0,
-              },
-            ],
-          })
-        }
-      })
-
-      // Calcular porcentajes generales
-      const resultadosArray = Array.from(resultadosMap.values()).map((candidato) => {
-        const porcentajeGeneral = totalVotosCalculado > 0 ? Math.round((candidato.total_votos / totalVotosCalculado) * 100) : 0
-
-        // Calcular porcentajes por mesa
-        Object.keys(candidato.votos_por_mesa).forEach((mesaStr) => {
-          const mesa = mesaStr
-          const mesaData = mesasMap.get(mesa)
-          if (mesaData) {
-            const porcentajeMesa =
-              mesaData.total_votos > 0
-                ? Math.round((candidato.votos_por_mesa[mesa].votos / mesaData.total_votos) * 100)
-                : 0
-            candidato.votos_por_mesa[mesa].porcentaje = porcentajeMesa
-          }
-        })
-
-        return {
-          ...candidato,
-          porcentaje: porcentajeGeneral,
-        }
-      })
-
-      // Calcular porcentajes por mesa
-      const resultadosMesaArray = Array.from(mesasMap.values()).map((mesa) => ({
-        ...mesa,
-        candidatos: mesa.candidatos.map((candidato) => ({
-          ...candidato,
-          porcentaje: mesa.total_votos > 0 ? Math.round((candidato.votos / mesa.total_votos) * 100) : 0,
-        })),
-      }))
-
-      // Ordenar resultados
-      resultadosArray.sort((a, b) => b.total_votos - a.total_votos)
-      resultadosMesaArray.sort((a, b) => a.mesa.localeCompare(b.mesa))
-      resultadosMesaArray.forEach((mesa) => {
-        mesa.candidatos.sort((a, b) => b.votos - a.votos)
-      })
-
-      setResultados(resultadosArray)
-      setResultadosPorMesa(resultadosMesaArray)
+      // Los resultados ahora se cargan automáticamente por el hook useResultadosMesa
 
       setPagination((prev) => ({
         ...prev,
@@ -318,8 +157,6 @@ export default function ResultadosPage() {
       }))
     } catch (error) {
       console.error("Error loading initial data:", error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -519,7 +356,7 @@ export default function ResultadosPage() {
     </div>
   )
 
-  if (loading || statsLoading) {
+  if (statsLoading || resultadosLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">Cargando resultados...</div>
@@ -535,7 +372,7 @@ export default function ResultadosPage() {
             <h1 className="text-3xl font-bold text-center mb-2">Resultados Elecciones</h1>
             <p className="text-center text-gray-600">Siete Palmas - 29 de Junio 2025</p>
           </div>
-          <Button variant="outline" onClick={logout}>
+          <Button variant="outline" onClick={() => logout("resultados")}>
             <LogOut className="h-4 w-4 mr-2" />
             Cerrar Sesión
           </Button>
@@ -647,7 +484,7 @@ export default function ResultadosPage() {
           {/* Resultados Generales */}
           <TabsContent value="candidatos" className="space-y-4">
             <ResultadosGenerales
-              candidatos={resultados}
+              candidatos={resultadosGenerales}
               totalVotos={totalVotos}
               descripcion={`Distribución total de votos - Total: ${totalVotos.toLocaleString()} votos`}
             />

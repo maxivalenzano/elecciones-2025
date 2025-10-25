@@ -104,3 +104,71 @@ export const isModoSimplificado = async (): Promise<boolean> => {
   const modo = await getConfiguracion("modo_simplificado")
   return modo === "true"
 }
+
+// Función helper para obtener todas las mesas únicas del padrón
+export const getMesasUnicas = async (): Promise<{
+  mesas: string[]
+  total: number
+  error: string | null
+}> => {
+  try {
+    // Intentar usar la función RPC optimizada primero
+    const { data: mesasData, error: mesasError } = await supabase.rpc("get_mesas_unicas").single()
+
+    if (!mesasError && mesasData) {
+      const mesas = (mesasData as { mesas: string[] })?.mesas || []
+      return {
+        mesas: mesas.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+        total: mesas.length,
+        error: null,
+      }
+    }
+
+    // Método alternativo: obtener todas las mesas con paginación
+    console.log("Función get_mesas_unicas no encontrada, usando método alternativo...")
+    
+    let allMesas: string[] = []
+    let hasMore = true
+    let offset = 0
+    const batchSize = 1000
+
+    while (hasMore) {
+      const { data: batchData, error: batchError } = await supabase
+        .from("padron")
+        .select("mesa")
+        .range(offset, offset + batchSize - 1)
+        .order("mesa", { ascending: true })
+
+      if (batchError) throw batchError
+
+      if (batchData && batchData.length > 0) {
+        const batchMesas = batchData.map((p) => p.mesa)
+        allMesas = [...allMesas, ...batchMesas]
+
+        if (batchData.length < batchSize) {
+          hasMore = false
+        } else {
+          offset += batchSize
+        }
+      } else {
+        hasMore = false
+      }
+    }
+
+    // Obtener mesas únicas y ordenarlas
+    const mesasUnicas = Array.from(new Set(allMesas)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+    return {
+      mesas: mesasUnicas,
+      total: mesasUnicas.length,
+      error: null,
+    }
+  } catch (error) {
+    console.error("Error obteniendo mesas únicas:", error)
+    return {
+      mesas: [],
+      total: 0,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    }
+  }
+}

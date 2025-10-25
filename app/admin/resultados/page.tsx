@@ -6,127 +6,47 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Download, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { supabase, type Candidato } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
+import { useResultadosMesa } from "@/hooks/use-resultados-mesa"
 import { ResultadosGenerales } from "@/components/resultados-generales"
 
-interface ResultadoMesa {
-  mesa: string
-  candidato_id: number
-  cantidad_votos: number
-  candidatos: {
-    id: number
-    nombre: string
-    partido: string
-    color: string
-    activo: boolean
-  }
-}
-
-interface ResumenCandidato extends Candidato {
-  total_votos: number
-  porcentaje: number
-  votos_por_mesa: { [mesa: string]: number }
-}
-
 export default function ResultadosAdminPage() {
-  const [resultados, setResultados] = useState<ResultadoMesa[]>([])
-  const [resumen, setResumen] = useState<ResumenCandidato[]>([])
-  const [mesas, setMesas] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [totalVotos, setTotalVotos] = useState(0)
-  const router = useRouter()
   const { toast } = useToast()
+  useAuth({ requiredRole: "admin", redirectTo: "/admin" })
+  
+  const { 
+    resultadosGenerales: resumen, 
+    resultadosPorMesa, 
+    totalVotos, 
+    loading, 
+    error,
+    refresh: loadResultados 
+  } = useResultadosMesa()
 
+  // Extraer mesas únicas de los resultados
+  const mesas = resultadosPorMesa.map(m => m.mesa).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+  // Mostrar error si existe
   useEffect(() => {
-    const isAdmin = localStorage.getItem("admin")
-    if (!isAdmin) {
-      router.push("/admin")
-      return
-    }
-    loadResultados()
-  }, [router])
-
-  const loadResultados = async () => {
-    try {
-      // Cargar resultados con información de candidatos
-      const { data: resultadosData, error: resultadosError } = await supabase
-        .from("votos")
-        .select(`
-          mesa,
-          candidato_id,
-          cantidad_votos,
-          candidatos (
-            id,
-            nombre,
-            partido,
-            color,
-            activo
-          )
-        `)
-        .order("mesa")
-
-      if (resultadosError) throw resultadosError
-
-      setResultados((resultadosData as any) || [])
-
-      // Obtener mesas únicas
-      const mesasUnicas = Array.from(new Set(resultadosData?.map((r) => r.mesa) || [])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      setMesas(mesasUnicas)
-
-      // Calcular resumen por candidato
-      const candidatosMap = new Map<number, ResumenCandidato>()
-      let totalVotosCount = 0
-
-      resultadosData?.forEach((resultado: any) => {
-        const candidato = resultado.candidatos
-        const votos = resultado.cantidad_votos
-        totalVotosCount += votos
-
-        if (candidatosMap.has(candidato.id)) {
-          const existing = candidatosMap.get(candidato.id)!
-          existing.total_votos += votos
-          existing.votos_por_mesa[resultado.mesa] = votos
-        } else {
-          candidatosMap.set(candidato.id, {
-            ...candidato,
-            total_votos: votos,
-            porcentaje: 0,
-            votos_por_mesa: { [resultado.mesa]: votos },
-          })
-        }
-      })
-
-      // Calcular porcentajes
-      const resumenArray = Array.from(candidatosMap.values()).map((candidato) => ({
-        ...candidato,
-        porcentaje: totalVotosCount > 0 ? Math.round((candidato.total_votos / totalVotosCount) * 100) : 0,
-      }))
-
-      // Ordenar por cantidad de votos
-      resumenArray.sort((a, b) => b.total_votos - a.total_votos)
-
-      setResumen(resumenArray)
-      setTotalVotos(totalVotosCount)
-    } catch (error) {
-      console.error("Error loading resultados:", error)
+    if (error) {
       toast({
         title: "Error",
-        description: "Error al cargar resultados",
+        description: error,
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [error, toast])
 
   const exportarResultados = () => {
     // Crear CSV con los resultados
     let csvContent = "Mesa,Candidato,Partido,Votos\n"
 
-    resultados.forEach((resultado: any) => {
-      csvContent += `${resultado.mesa},"${resultado.candidatos.nombre}","${resultado.candidatos.partido}",${resultado.cantidad_votos}\n`
+    resultadosPorMesa.forEach((mesaData) => {
+      mesaData.candidatos.forEach((candidato) => {
+        csvContent += `${mesaData.mesa},"${candidato.nombre}","${candidato.partido}",${candidato.votos}\n`
+      })
     })
 
     // Descargar archivo
@@ -163,7 +83,7 @@ export default function ResultadosAdminPage() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Actualizar
               </Button>
-              <Button onClick={exportarResultados} disabled={resultados.length === 0}>
+              <Button onClick={exportarResultados} disabled={resultadosPorMesa.length === 0}>
                 <Download className="h-4 w-4 mr-2" />
                 Exportar CSV
               </Button>
@@ -209,38 +129,33 @@ export default function ResultadosAdminPage() {
             <CardDescription>Detalle de votos por mesa y candidato</CardDescription>
           </CardHeader>
           <CardContent>
-            {mesas.length > 0 ? (
+            {resultadosPorMesa.length > 0 ? (
               <div className="space-y-4">
-                {mesas.map((mesa) => {
-                  const resultadosMesa = resultados.filter((r) => r.mesa === mesa)
-                  const totalVotosMesa = resultadosMesa.reduce((sum, r) => sum + r.cantidad_votos, 0)
-
-                  return (
-                    <div key={mesa} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-3">
-                        <h3 className="font-semibold text-lg">Mesa {mesa}</h3>
-                        <Badge variant="outline">{totalVotosMesa} votos</Badge>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {resultadosMesa.map((resultado: any) => (
-                          <div
-                            key={`${mesa}-${resultado.candidato_id}`}
-                            className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: resultado.candidatos.color }}
-                              />
-                              <span className="text-sm font-medium">{resultado.candidatos.nombre}</span>
-                            </div>
-                            <span className="font-bold">{resultado.cantidad_votos}</span>
-                          </div>
-                        ))}
-                      </div>
+                {resultadosPorMesa.map((mesaData) => (
+                  <div key={mesaData.mesa} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="font-semibold text-lg">Mesa {mesaData.mesa}</h3>
+                      <Badge variant="outline">{mesaData.total_votos} votos</Badge>
                     </div>
-                  )
-                })}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {mesaData.candidatos.map((candidato) => (
+                        <div
+                          key={`${mesaData.mesa}-${candidato.id}`}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: candidato.color }}
+                            />
+                            <span className="text-sm font-medium">{candidato.nombre}</span>
+                          </div>
+                          <span className="font-bold">{candidato.votos}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">

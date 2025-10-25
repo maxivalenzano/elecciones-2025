@@ -31,9 +31,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Plus, Edit, Trash2, ArrowLeft, Tag, Palette } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { supabase, type Etiqueta } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 const COLORES_DISPONIBLES = [
   "#EF4444", // Rojo
@@ -58,17 +58,12 @@ export default function EtiquetasPage() {
     color: "#6B7280",
     descripcion: "",
   })
-  const router = useRouter()
   const { toast } = useToast()
+  useAuth({ requiredRole: "admin", redirectTo: "/admin" })
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem("admin")
-    if (!isAdmin) {
-      router.push("/admin")
-      return
-    }
     loadEtiquetas()
-  }, [router])
+  }, [])
 
   const loadEtiquetas = async () => {
     try {

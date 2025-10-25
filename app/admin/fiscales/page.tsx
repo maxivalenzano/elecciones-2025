@@ -31,9 +31,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit, Trash2, ArrowLeft, Users, Eye, EyeOff, AlertCircle } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { supabase, type Fiscal } from "@/lib/supabase"
+import { supabase, type Fiscal, getMesasUnicas } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function FiscalesPage() {
   const [fiscales, setFiscales] = useState<Fiscal[]>([])
@@ -48,17 +48,12 @@ export default function FiscalesPage() {
     mesa_asignada: "",
     password: "",
   })
-  const router = useRouter()
   const { toast } = useToast()
+  useAuth({ requiredRole: "admin", redirectTo: "/admin" })
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem("admin")
-    if (!isAdmin) {
-      router.push("/admin")
-      return
-    }
     loadData()
-  }, [router])
+  }, [])
 
   const loadData = async () => {
     try {
@@ -71,32 +66,18 @@ export default function FiscalesPage() {
       if (fiscalesError) throw fiscalesError
       setFiscales(fiscalesData || [])
 
-      // Cargar TODAS las mesas disponibles del padrón usando una consulta optimizada
-      // Primero obtenemos todas las mesas únicas sin limitación
-      const { data: mesasData, error: mesasError } = await supabase
-        .rpc("get_mesas_unicas") // Usaremos una función SQL personalizada
-        .single()
+      // Cargar todas las mesas usando la función centralizada
+      const { mesas: mesasData, total, error: mesasError } = await getMesasUnicas()
 
       if (mesasError) {
-        // Si la función no existe, usar método alternativo
-        console.log("Función get_mesas_unicas no encontrada, usando método alternativo...")
-
-        // Método alternativo: obtener mesas con DISTINCT
-        const { data: mesasAlternativas, error: mesasAltError } = await supabase
-          .from("padron")
-          .select("mesa")
-          .order("mesa", { ascending: true })
-
-        if (mesasAltError) throw mesasAltError
-
-        // Extraer mesas únicas manualmente
-        const mesasUnicas = Array.from(new Set(mesasAlternativas?.map((p) => p.mesa) || [])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        setMesas(mesasUnicas)
-        setTotalMesas(mesasUnicas.length)
+        toast({
+          title: "Error",
+          description: "Error al cargar mesas: " + mesasError,
+          variant: "destructive",
+        })
       } else {
-        // Si la función existe, usar su resultado
-        setMesas(mesasData.mesas || [])
-        setTotalMesas(mesasData.total || 0)
+        setMesas(mesasData)
+        setTotalMesas(total)
       }
     } catch (error) {
       console.error("Error loading data:", error)

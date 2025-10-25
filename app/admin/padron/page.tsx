@@ -10,10 +10,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Upload, ArrowLeft, FileText, Users, AlertCircle, CheckCircle, BarChart3 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useElectionStats } from "@/hooks/use-election-stats"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function PadronPage() {
   const [loading, setLoading] = useState(true)
@@ -22,20 +22,15 @@ export default function PadronPage() {
   const [previewData, setPreviewData] = useState<any[]>([])
   const [ultimaCarga, setUltimaCarga] = useState<string | null>(null)
   
-  const router = useRouter()
   const { toast } = useToast()
+  useAuth({ requiredRole: "admin", redirectTo: "/admin" })
   
   // Usar el hook centralizado para estadísticas
   const { totalPadron, totalVotantes, porcentajeParticipacion, totalMesas, loading: statsLoading, refresh: refreshStats } = useElectionStats()
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem("admin")
-    if (!isAdmin) {
-      router.push("/admin")
-      return
-    }
     loadUltimaCarga()
-  }, [router])
+  }, [])
 
   const loadUltimaCarga = async () => {
     try {
