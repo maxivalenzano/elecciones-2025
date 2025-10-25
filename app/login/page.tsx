@@ -11,8 +11,8 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
-const ADMIN_PASSWORD = "828869hlv"
-const RESULTADOS_PASSWORD = "resultado2906"
+const ADMIN_PASSWORD = "sietepalmas869"
+const RESULTADOS_PASSWORD = "resultados2610"
 
 export default function LoginPage() {
   const [password, setPassword] = useState("")

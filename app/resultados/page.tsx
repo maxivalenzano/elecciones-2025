@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -26,6 +25,8 @@ import {
 import { useRouter } from "next/navigation"
 import { supabase, type Candidato, type PadronRecord, type Etiqueta, isModoSimplificado } from "@/lib/supabase"
 import { useElectionStats } from "@/hooks/use-election-stats"
+import { ResultadoMesa } from "@/components/resultado-mesa"
+import { ResultadosGenerales } from "@/components/resultados-generales"
 
 interface ResultadoCandidato extends Candidato {
   total_votos: number
@@ -645,46 +646,11 @@ export default function ResultadosPage() {
 
           {/* Resultados Generales */}
           <TabsContent value="candidatos" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Resultados Generales</CardTitle>
-                <CardDescription>
-                  Distribución total de votos - Total: {totalVotos.toLocaleString()} votos
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {resultados.length > 0 ? (
-                  resultados.map((candidato, index) => (
-                    <div key={candidato.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
-                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: candidato.color }} />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-lg">{candidato.nombre}</p>
-                            <p className="text-sm text-gray-600">{candidato.partido}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold" style={{ color: candidato.color }}>
-                            {candidato.total_votos.toLocaleString()}
-                          </p>
-                          <p className="text-sm text-gray-600">{candidato.porcentaje}%</p>
-                        </div>
-                      </div>
-                      <Progress value={candidato.porcentaje} className="h-3" />
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No hay resultados disponibles</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <ResultadosGenerales
+              candidatos={resultados}
+              totalVotos={totalVotos}
+              descripcion={`Distribución total de votos - Total: ${totalVotos.toLocaleString()} votos`}
+            />
           </TabsContent>
 
           {/* Resultados por Mesa */}
@@ -698,30 +664,13 @@ export default function ResultadosPage() {
                 {resultadosPorMesa.length > 0 ? (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {resultadosPorMesa.map((mesa) => (
-                      <div key={mesa.mesa} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-center mb-3">
-                          <h3 className="font-semibold text-lg">Mesa {mesa.mesa}</h3>
-                          <Badge variant="outline">{mesa.total_votos} votos</Badge>
-                        </div>
-                        <div className="space-y-2">
-                          {mesa.candidatos.map((candidato, index) => (
-                            <div key={candidato.id} className="space-y-1">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-gray-400">#{index + 1}</span>
-                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: candidato.color }} />
-                                  <span className="text-sm font-medium">{candidato.nombre}</span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="font-bold">{candidato.votos}</span>
-                                  <span className="text-sm text-gray-600 ml-1">({candidato.porcentaje}%)</span>
-                                </div>
-                              </div>
-                              <Progress value={candidato.porcentaje} className="h-2" />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <ResultadoMesa
+                        key={mesa.mesa}
+                        mesa={mesa.mesa}
+                        candidatos={mesa.candidatos}
+                        totalVotos={mesa.total_votos}
+                        mostrarTitulo={false}
+                      />
                     ))}
                   </div>
                 ) : (

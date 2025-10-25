@@ -10,7 +10,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
-const ADMIN_PASSWORD = "828869hlv"
+const ADMIN_PASSWORD = "sietepalmas869"
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState("")

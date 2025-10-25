@@ -4,18 +4,24 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, BarChart3, Download, RefreshCw } from "lucide-react"
+import { ArrowLeft, Download, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { supabase, type Candidato } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { ResultadosGenerales } from "@/components/resultados-generales"
 
 interface ResultadoMesa {
   mesa: string
   candidato_id: number
   cantidad_votos: number
-  candidatos: Candidato
+  candidatos: {
+    id: number
+    nombre: string
+    partido: string
+    color: string
+    activo: boolean
+  }
 }
 
 interface ResumenCandidato extends Candidato {
@@ -63,7 +69,7 @@ export default function ResultadosAdminPage() {
 
       if (resultadosError) throw resultadosError
 
-      setResultados(resultadosData || [])
+      setResultados((resultadosData as any) || [])
 
       // Obtener mesas únicas
       const mesasUnicas = Array.from(new Set(resultadosData?.map((r) => r.mesa) || [])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
@@ -188,44 +194,13 @@ export default function ResultadosAdminPage() {
         </div>
 
         {/* Resumen por candidato */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Resumen General</CardTitle>
-            <CardDescription>Resultados totales por candidato</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {resumen.length > 0 ? (
-              resumen.map((candidato, index) => (
-                <div key={candidato.id} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: candidato.color }} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-lg">{candidato.nombre}</p>
-                        <p className="text-sm text-gray-600">{candidato.partido}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold" style={{ color: candidato.color }}>
-                        {candidato.total_votos}
-                      </p>
-                      <p className="text-sm text-gray-600">{candidato.porcentaje}%</p>
-                    </div>
-                  </div>
-                  <Progress value={candidato.porcentaje} className="h-3" />
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No hay resultados cargados aún</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ResultadosGenerales
+          candidatos={resumen}
+          totalVotos={totalVotos}
+          titulo="Resumen General"
+          descripcion="Resultados totales por candidato"
+          className="mb-6"
+        />
 
         {/* Resultados por mesa */}
         <Card>

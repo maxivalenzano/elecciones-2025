@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Check, X, BarChart3, Tag, AlertTriangle } from "lucide-react"
+import { Search, Check, X, BarChart3, Tag, AlertTriangle, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   supabase,
@@ -18,6 +18,7 @@ import {
   type PadronRecordWithEtiquetas,
 } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { ResultadoMesa } from "@/components/resultado-mesa"
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,18 @@ export default function FiscalMesaPage() {
   const [resultadosData, setResultadosData] = useState<{ [key: number]: number }>({})
   const [cargandoResultados, setCargandoResultados] = useState(false)
   const [modoSimplificado, setModoSimplificado] = useState(false)
+  
+  // Estados para la vista previa de resultados
+  const [resultadosMesa, setResultadosMesa] = useState<Array<{
+    id: number
+    nombre: string
+    partido: string
+    color: string
+    votos: number
+    porcentaje: number
+  }>>([])
+  const [totalVotosMesa, setTotalVotosMesa] = useState(0)
+  const [loadingResultados, setLoadingResultados] = useState(false)
 
   // Estados para etiquetas
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([])
@@ -180,6 +193,59 @@ export default function FiscalMesaPage() {
     setModoSimplificado(isSimple)
   }
 
+  const loadResultadosMesa = async (mesa: string) => {
+    setLoadingResultados(true)
+    try {
+      const { data: votosData, error } = await supabase
+        .from("votos")
+        .select(`
+          candidato_id,
+          cantidad_votos,
+          candidatos (
+            id,
+            nombre,
+            partido,
+            color
+          )
+        `)
+        .eq("mesa", mesa)
+
+      if (error) throw error
+
+      if (!votosData || votosData.length === 0) {
+        setResultadosMesa([])
+        setTotalVotosMesa(0)
+        return
+      }
+
+      let totalVotos = 0
+      const resultados = votosData.map((voto: any) => {
+        totalVotos += voto.cantidad_votos
+        return {
+          id: voto.candidatos.id,
+          nombre: voto.candidatos.nombre,
+          partido: voto.candidatos.partido,
+          color: voto.candidatos.color,
+          votos: voto.cantidad_votos,
+          porcentaje: 0, // Se calculará después
+        }
+      })
+
+      // Calcular porcentajes
+      const resultadosConPorcentaje = resultados.map(r => ({
+        ...r,
+        porcentaje: totalVotos > 0 ? Math.round((r.votos / totalVotos) * 100) : 0,
+      }))
+
+      setResultadosMesa(resultadosConPorcentaje)
+      setTotalVotosMesa(totalVotos)
+    } catch (error) {
+      console.error("Error loading resultados:", error)
+    } finally {
+      setLoadingResultados(false)
+    }
+  }
+
   useEffect(() => {
     const fiscalData = localStorage.getItem("fiscal")
     if (!fiscalData) {
@@ -193,6 +259,7 @@ export default function FiscalMesaPage() {
     loadCandidatos()
     loadEtiquetas()
     checkCargaResultados()
+    loadResultadosMesa(parsedFiscal.mesa_asignada)
     
     // Solo cargar votantes si NO está en modo simplificado
     isModoSimplificado().then(isSimple => {
@@ -437,6 +504,9 @@ export default function FiscalMesaPage() {
       })
 
       setResultadosDialog(false)
+      
+      // Recargar la vista previa de resultados
+      loadResultadosMesa(fiscal.mesa_asignada)
     } catch (error) {
       console.error("Error saving resultados:", error)
       toast({
@@ -491,11 +561,11 @@ export default function FiscalMesaPage() {
           <Card className="mb-6 border-blue-200 bg-blue-50">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-blue-600" />
+                <BarChart3 className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="font-semibold text-blue-800">Modo Simplificado Activo</p>
+                  <p className="font-semibold text-blue-800">Carga de Resultados Electorales</p>
                   <p className="text-sm text-blue-700">
-                    Solo puede cargar los resultados finales de la mesa. La marcación individual de votantes está deshabilitada.
+                    Ingrese los resultados del escrutinio provisional según el acta electoral de esta mesa.
                   </p>
                 </div>
               </div>
@@ -586,6 +656,41 @@ export default function FiscalMesaPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Vista previa de resultados de la mesa */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">Resultados de la Mesa</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fiscal && loadResultadosMesa(fiscal.mesa_asignada)}
+              disabled={loadingResultados}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loadingResultados ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+          </div>
+          
+          {loadingResultados ? (
+            <Card>
+              <CardContent className="p-8">
+                <div className="text-center text-gray-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm">Cargando resultados...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <ResultadoMesa
+              mesa={fiscal?.mesa_asignada || ""}
+              candidatos={resultadosMesa}
+              totalVotos={totalVotosMesa}
+              mostrarTitulo={false}
+              className="border-2 border-blue-200"
+            />
+          )}
+        </div>
 
         {/* Búsqueda - Solo en modo completo */}
         {!modoSimplificado && (
