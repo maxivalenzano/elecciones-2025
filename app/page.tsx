@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Search, LogIn } from "lucide-react"
 import { ResultadosPublicos } from "@/components/resultados-publicos"
 import { isModoSimplificado } from "@/lib/supabase"
+import { ELECCIONES } from "@/lib/constants"
 
 export default function HomePage() {
   const [modoSimplificado, setModoSimplificado] = useState(false)
@@ -26,9 +27,9 @@ export default function HomePage() {
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">
           <span className="block sm:inline">Elecciones</span>{" "}
-          <span className="block sm:inline">Siete Palmas</span>
+          <span className="block sm:inline">{ELECCIONES.lugar}</span>
         </h1>
-        <p className="text-xl text-gray-600">Domingo 29 de Junio de 2025</p>
+        <p className="text-xl text-gray-600">{ELECCIONES.fechaCompleta}</p>
       </div>
 
 

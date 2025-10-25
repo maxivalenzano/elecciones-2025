@@ -10,8 +10,8 @@ import { Suspense } from "react"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Elecciones Siete Palmas",
-  description: "Sistema de gestión electoral para Siete Palmas",
+  title: "Elecciones Siete Palmas 2025",
+  description: "Sistema de gestión electoral para Siete Palmas - 26 de octubre de 2025",
   generator: "v0.dev",
 }
 

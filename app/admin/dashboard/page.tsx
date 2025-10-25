@@ -12,6 +12,7 @@ import { useElectionStats } from "@/hooks/use-election-stats"
 import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
 import { AdminMobileNav } from "@/components/admin-mobile-nav"
+import { ELECCIONES } from "@/lib/constants"
 
 export default function AdminDashboard() {
   const [candidatos, setCandidatos] = useState<Candidato[]>([])
@@ -82,7 +83,7 @@ export default function AdminDashboard() {
         <div className="mb-6 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Panel de Administración</h1>
-            <p className="text-gray-600">Elecciones Siete Palmas 2025</p>
+            <p className="text-gray-600">{ELECCIONES.tituloCompleto} {ELECCIONES.año}</p>
           </div>
           <Button variant="outline" onClick={() => logout("admin")}>
             <LogOut className="h-4 w-4 mr-2" />

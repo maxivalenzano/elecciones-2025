@@ -28,6 +28,7 @@ import { useResultadosMesa } from "@/hooks/use-resultados-mesa"
 import { useAuth } from "@/hooks/use-auth"
 import { ResultadoMesa } from "@/components/resultado-mesa"
 import { ResultadosGenerales } from "@/components/resultados-generales"
+import { ELECCIONES } from "@/lib/constants"
 
 interface ResultadoCandidato extends Candidato {
   total_votos: number
@@ -370,7 +371,7 @@ export default function ResultadosPage() {
         <div className="mb-6 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-center mb-2">Resultados Elecciones</h1>
-            <p className="text-center text-gray-600">Siete Palmas - 29 de Junio 2025</p>
+            <p className="text-center text-gray-600">{ELECCIONES.subtituloCompleto}</p>
           </div>
           <Button variant="outline" onClick={() => logout("resultados")}>
             <LogOut className="h-4 w-4 mr-2" />
