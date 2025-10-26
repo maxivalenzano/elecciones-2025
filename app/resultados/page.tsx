@@ -29,6 +29,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { ResultadoMesa } from "@/components/resultado-mesa"
 import { ResultadosGenerales } from "@/components/resultados-generales"
 import { ELECCIONES } from "@/lib/constants"
+import { formatearPorcentaje } from "@/lib/utils"
 
 interface ResultadoCandidato extends Candidato {
   total_votos: number
@@ -442,7 +443,7 @@ export default function ResultadosPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                    <div className="text-2xl font-bold text-purple-600">{formatearPorcentaje(porcentajeParticipacion)}%</div>
                     <p className="text-sm text-gray-600">Participación</p>
                     <p className="text-xs text-gray-500 mt-1">
                       {totalVotantes.toLocaleString()} de {totalPadron.toLocaleString()}

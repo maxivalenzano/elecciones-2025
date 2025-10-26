@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
+import { calcularPorcentaje } from "@/lib/utils"
 
 export interface ElectionStats {
   totalPadron: number
@@ -123,7 +124,7 @@ export function useElectionStats() {
 
       const totalPadron = totalPadronCount || 0
       const totalVotantes = totalVotantesCount || 0
-      const porcentajeParticipacion = totalPadron > 0 ? Math.round((totalVotantes / totalPadron) * 100) : 0
+      const porcentajeParticipacion = calcularPorcentaje(totalVotantes, totalPadron)
 
       setStats({
         totalPadron,

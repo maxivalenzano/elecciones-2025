@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Users, Upload, Vote, UserPlus, BarChart3, Settings, Menu, ChevronRight, Tag } from "lucide-react"
 import Link from "next/link"
+import { formatearPorcentaje } from "@/lib/utils"
 
 interface AdminMobileNavProps {
   currentPage?: string
@@ -66,7 +67,7 @@ export function AdminMobileNav({ currentPage = "overview", stats }: AdminMobileN
       href: "/admin/resultados",
       color: "text-red-600",
       bgColor: "bg-red-50",
-      badge: stats ? `${stats.porcentajeParticipacion}% participación` : undefined,
+      badge: stats ? `${formatearPorcentaje(stats.porcentajeParticipacion)}% participación` : undefined,
     },
     {
       id: "control",

@@ -19,6 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { ResultadoMesa } from "@/components/resultado-mesa"
+import { calcularPorcentaje, formatearPorcentaje } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -234,7 +235,7 @@ export default function FiscalMesaPage() {
       // Calcular porcentajes
       const resultadosConPorcentaje = resultados.map(r => ({
         ...r,
-        porcentaje: totalVotos > 0 ? Math.round((r.votos / totalVotos) * 100) : 0,
+        porcentaje: calcularPorcentaje(r.votos, totalVotos),
       }))
 
       setResultadosMesa(resultadosConPorcentaje)
@@ -460,8 +461,7 @@ export default function FiscalMesaPage() {
   }
 
   const votantesQueVotaron = votantes.filter((v) => v.voto_timestamp)
-  const porcentajeParticipacion =
-    votantes.length > 0 ? Math.round((votantesQueVotaron.length / votantes.length) * 100) : 0
+  const porcentajeParticipacion = calcularPorcentaje(votantesQueVotaron.length, votantes.length)
 
   const handleResultadosSubmit = async () => {
     if (!fiscal) return
@@ -544,7 +544,7 @@ export default function FiscalMesaPage() {
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                <div className="text-2xl font-bold text-purple-600">{formatearPorcentaje(porcentajeParticipacion)}%</div>
                 <p className="text-sm text-gray-600">Participación</p>
               </CardContent>
             </Card>

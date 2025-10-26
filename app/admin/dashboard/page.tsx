@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
 import { AdminMobileNav } from "@/components/admin-mobile-nav"
 import { ELECCIONES } from "@/lib/constants"
+import { formatearPorcentaje } from "@/lib/utils"
 
 export default function AdminDashboard() {
   const [candidatos, setCandidatos] = useState<Candidato[]>([])
@@ -123,7 +124,7 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                  <div className="text-2xl font-bold text-purple-600">{formatearPorcentaje(porcentajeParticipacion)}%</div>
                   <p className="text-sm text-gray-600">Participación</p>
                   <p className="text-xs text-gray-500">
                     {totalVotantes.toLocaleString()} / {totalPadron.toLocaleString()}

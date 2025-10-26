@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { BarChart3 } from "lucide-react"
 import type { Candidato } from "@/lib/supabase"
+import { formatearPorcentaje } from "@/lib/utils"
 
 interface CandidatoResultado extends Candidato {
   total_votos: number
@@ -50,7 +51,7 @@ export function ResultadosGenerales({
                 <p className="text-2xl font-bold" style={{ color: candidato.color }}>
                   {candidato.total_votos.toLocaleString()}
                 </p>
-                <p className="text-sm text-gray-600">{candidato.porcentaje}%</p>
+                <p className="text-sm text-gray-600">{formatearPorcentaje(candidato.porcentaje)}%</p>
               </div>
             </div>
             <Progress value={candidato.porcentaje} className="h-3" />

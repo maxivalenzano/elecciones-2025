@@ -8,6 +8,7 @@ import { useElectionStats } from "@/hooks/use-election-stats"
 import { useResultadosMesa } from "@/hooks/use-resultados-mesa"
 import { ResultadoMesa } from "@/components/resultado-mesa"
 import { ResultadosGenerales } from "@/components/resultados-generales"
+import { formatearPorcentaje } from "@/lib/utils"
 
 export function ResultadosPublicos() {
   const [resultadosPublicos, setResultadosPublicos] = useState(false)
@@ -118,7 +119,7 @@ export function ResultadosPublicos() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                  <div className="text-2xl font-bold text-purple-600">{formatearPorcentaje(porcentajeParticipacion)}%</div>
                   <p className="text-sm text-gray-600">Participación</p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-purple-600" />

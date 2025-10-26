@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { BarChart3 } from "lucide-react"
+import { formatearPorcentaje } from "@/lib/utils"
 
 interface CandidatoResultado {
   id: number
@@ -80,7 +81,7 @@ export function ResultadoMesa({
                 </div>
                 <div className="text-right flex-shrink-0 ml-2">
                   <span className="font-bold text-base">{candidato.votos}</span>
-                  <span className="text-sm text-gray-600 ml-1">({candidato.porcentaje}%)</span>
+                  <span className="text-sm text-gray-600 ml-1">({formatearPorcentaje(candidato.porcentaje)}%)</span>
                 </div>
               </div>
               {!compact && (

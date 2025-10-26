@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useElectionStats } from "@/hooks/use-election-stats"
 import { useAuth } from "@/hooks/use-auth"
+import { formatearPorcentaje } from "@/lib/utils"
 
 export default function PadronPage() {
   const [loading, setLoading] = useState(true)
@@ -210,7 +211,7 @@ export default function PadronPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{porcentajeParticipacion}%</div>
+                  <div className="text-2xl font-bold text-purple-600">{formatearPorcentaje(porcentajeParticipacion)}%</div>
                   <p className="text-sm text-gray-600">Participación</p>
                   <p className="text-xs text-gray-500">
                     {totalVotantes.toLocaleString()} / {totalPadron.toLocaleString()}
@@ -252,7 +253,7 @@ export default function PadronPage() {
                       <li>{totalPadron.toLocaleString()} registros totales en el padrón</li>
                       <li>{totalMesas} mesas electorales configuradas</li>
                       <li>
-                        {totalVotantes.toLocaleString()} votantes ({porcentajeParticipacion}% de
+                        {totalVotantes.toLocaleString()} votantes ({formatearPorcentaje(porcentajeParticipacion)}% de
                         participación)
                       </li>
                     </ul>

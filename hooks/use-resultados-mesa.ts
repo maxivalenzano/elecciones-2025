@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { supabase, type Candidato } from "@/lib/supabase"
+import { calcularPorcentaje } from "@/lib/utils"
 
 export interface ResultadoCandidato extends Candidato {
   total_votos: number
@@ -123,16 +124,14 @@ export function useResultadosMesa(): UseResultadosMesaReturn {
 
       // Calcular porcentajes generales y por mesa
       const resultadosArray = Array.from(resultadosMap.values()).map((candidato) => {
-        const porcentajeGeneral =
-          totalVotosCalculado > 0 ? Math.round((candidato.total_votos / totalVotosCalculado) * 100) : 0
+        const porcentajeGeneral = calcularPorcentaje(candidato.total_votos, totalVotosCalculado)
 
         // Calcular porcentajes por mesa
         Object.keys(candidato.votos_por_mesa).forEach((mesaKey) => {
           const mesaData = mesasMap.get(mesaKey)
           if (mesaData) {
             const votosMesa = candidato.votos_por_mesa[mesaKey].votos
-            const porcentajeMesa =
-              mesaData.total_votos > 0 ? Math.round((votosMesa / mesaData.total_votos) * 100) : 0
+            const porcentajeMesa = calcularPorcentaje(votosMesa, mesaData.total_votos)
             candidato.votos_por_mesa[mesaKey].porcentaje = porcentajeMesa
           }
         })
@@ -148,7 +147,7 @@ export function useResultadosMesa(): UseResultadosMesaReturn {
         ...mesa,
         candidatos: mesa.candidatos.map((candidato) => ({
           ...candidato,
-          porcentaje: mesa.total_votos > 0 ? Math.round((candidato.votos / mesa.total_votos) * 100) : 0,
+          porcentaje: calcularPorcentaje(candidato.votos, mesa.total_votos),
         })),
       }))
 
