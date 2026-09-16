@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "elecciones-siete-palmas",
   "version": "0.1.0",
   "private": false,
   "scripts": {
@@ -37,9 +37,7 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
-    "@remix-run/react": "latest",
     "@supabase/supabase-js": "latest",
-    "@sveltejs/kit": "latest",
     "@vercel/analytics": "latest",
     "@vercel/speed-insights": "latest",
     "autoprefixer": "^10.4.20",
@@ -59,12 +57,9 @@
     "react-resizable-panels": "latest",
     "recharts": "latest",
     "sonner": "latest",
-    "svelte": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "latest",
-    "vue": "latest",
-    "vue-router": "latest",
     "zod": "^3.24.1"
   },
   "devDependencies": {
